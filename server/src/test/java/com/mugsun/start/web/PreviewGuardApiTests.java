@@ -86,6 +86,41 @@ class PreviewGuardApiTests {
 	}
 
 	@Test
+	@DisplayName("/starter.zip、/starter.tgz 与预览共用名额：用完时 429 RATE_LIMITED + Retry-After，归还后照常下载")
+	void downloadRateLimited() throws Exception {
+		this.guard.permits().acquire();
+		try {
+			for (String path : new String[] { "/starter.zip", "/starter.tgz" }) {
+				MvcResult busy = this.mvc.perform(get(path).param("artifactId", "shop")).andReturn();
+				assertThat(busy.getResponse().getStatus()).as(path).isEqualTo(429);
+				assertThat(busy.getResponse().getHeader("Retry-After")).as(path).isEqualTo("1");
+				assertThat(busy.getResponse().getContentType()).as(path).startsWith("application/json");
+				JsonNode body = json(busy);
+				assertThat(body.path("code").asText()).isEqualTo("RATE_LIMITED");
+				assertThat(body.path("requestId").asText()).isEqualTo(busy.getResponse().getHeader("X-Request-Id"));
+			}
+		}
+		finally {
+			this.guard.permits().release();
+		}
+		assertThat(this.guard.availablePermits()).isEqualTo(1);
+		MvcResult zip = this.mvc.perform(get("/starter.zip").param("artifactId", "shop")).andReturn();
+		assertThat(zip.getResponse().getStatus()).isEqualTo(200);
+		assertThat(zip.getResponse().getContentType()).isEqualTo("application/zip");
+		MvcResult tgz = this.mvc.perform(get("/starter.tgz").param("artifactId", "shop")).andReturn();
+		assertThat(tgz.getResponse().getStatus()).isEqualTo(200);
+		assertThat(this.guard.availablePermits()).as("下载结束后名额归还").isEqualTo(1);
+	}
+
+	@Test
+	@DisplayName("下载参数错误：先拿名额再校验，名额照常归还")
+	void invalidDownloadReleasesPermit() throws Exception {
+		MvcResult bad = this.mvc.perform(get("/starter.zip").param("artifactId", "Bad Artifact")).andReturn();
+		assertThat(bad.getResponse().getStatus()).isEqualTo(400);
+		assertThat(this.guard.availablePermits()).isEqualTo(1);
+	}
+
+	@Test
 	@DisplayName("未传或空白 baseDir：首次与命中缓存时 root 都是 artifactId，不会是 null")
 	void rootFallsBackToArtifactIdOnHit() throws Exception {
 		JsonNode first = json(this.mvc.perform(get("/api/v1/preview").param("artifactId", "shop")).andReturn());

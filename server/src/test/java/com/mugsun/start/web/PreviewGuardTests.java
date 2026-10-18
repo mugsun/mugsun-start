@@ -136,6 +136,91 @@ class PreviewGuardTests {
 		assertThat(guard.availablePermits()).isEqualTo(2);
 	}
 
+	private static PreviewTree.Result sized(int files, int dirs) {
+		return new PreviewTree.Result(List.of(), files, dirs, false);
+	}
+
+	@Test
+	@DisplayName("缓存按权重（fileCount + dirCount）淘汰：总权重不超过 max-weight，超重的单条不留")
+	void weighedByNodeCount() {
+		assertThat(PreviewGuard.weight(sized(4, 2))).isEqualTo(6);
+		assertThat(PreviewGuard.weight(sized(0, 0))).as("至少 1").isEqualTo(1);
+		PreviewGuard guard = new PreviewGuard(10, Duration.ofMinutes(10), 2, Duration.ofSeconds(1));
+		guard.get(request("a"), () -> sized(4, 2));
+		assertThat(guard.weightedSize()).isEqualTo(6);
+		guard.get(request("b"), () -> sized(3, 1));
+		assertThat(guard.weightedSize()).isEqualTo(10);
+		assertThat(guard.cachedEntries()).isEqualTo(2);
+		guard.get(request("c"), () -> sized(2, 1));
+		assertThat(guard.weightedSize()).isLessThanOrEqualTo(10);
+		assertThat(guard.cachedEntries()).isLessThan(3);
+		guard.invalidateAll();
+		guard.get(request("huge"), () -> sized(50, 10));
+		assertThat(guard.cachedEntries()).as("单条权重超过上限不缓存").isZero();
+	}
+
+	@Test
+	@DisplayName("withPermit：与预览共用名额；用完时 RATE_LIMITED + Retry-After，执行异常也归还名额")
+	void withPermitSharesPermits() throws Exception {
+		PreviewGuard guard = guard(1, Duration.ofMillis(50));
+		assertThat(guard.withPermit(() -> "zip")).isEqualTo("zip");
+		assertThatThrownBy(() -> guard.withPermit(() -> { throw new java.io.IOException("disk"); }))
+			.isInstanceOf(java.io.IOException.class);
+		assertThat(guard.availablePermits()).isEqualTo(1);
+		CountDownLatch inside = new CountDownLatch(1);
+		CountDownLatch release = new CountDownLatch(1);
+		ExecutorService pool = Executors.newSingleThreadExecutor();
+		try {
+			// 一个预览生成占住唯一名额，下载拿不到
+			Future<PreviewTree.Result> running = pool.submit(() -> guard.get(request("slow"), () -> {
+				inside.countDown();
+				try {
+					release.await(5, TimeUnit.SECONDS);
+				}
+				catch (InterruptedException ex) {
+					Thread.currentThread().interrupt();
+				}
+				return RESULT;
+			}));
+			assertThat(inside.await(5, TimeUnit.SECONDS)).isTrue();
+			assertThatThrownBy(() -> guard.withPermit(() -> "zip"))
+				.isInstanceOfSatisfying(MugsunRequestException.class, (ex) -> {
+					assertThat(ex.code()).isEqualTo(ErrorCode.RATE_LIMITED);
+					assertThat(ex.retryAfterSeconds()).isEqualTo(1L);
+				});
+			release.countDown();
+			running.get(5, TimeUnit.SECONDS);
+		}
+		finally {
+			release.countDown();
+			pool.shutdownNow();
+		}
+		assertThat(guard.withPermit(() -> "zip")).isEqualTo("zip");
+	}
+
+	@Test
+	@DisplayName("缓存的树不可变：深层节点也改不动，不会污染下一次命中")
+	void cachedTreeImmutable() {
+		Map<String, Object> child = new java.util.LinkedHashMap<>(Map.of("name", "pom.xml"));
+		Map<String, Object> root = new java.util.LinkedHashMap<>();
+		root.put("name", "demo");
+		root.put("children", new ArrayList<>(List.of(child)));
+		List<Map<String, Object>> tree = new ArrayList<>(List.of(root));
+		PreviewTree.Result result = new PreviewTree.Result(tree, 1, 1, false);
+		// 构造之后改原始结构，不影响结果
+		child.put("name", "changed");
+		tree.clear();
+		assertThat(result.tree()).hasSize(1);
+		Map<String, Object> top = result.tree().get(0);
+		@SuppressWarnings("unchecked")
+		List<Map<String, Object>> kids = (List<Map<String, Object>>) top.get("children");
+		assertThat(kids.get(0).get("name")).isEqualTo("pom.xml");
+		assertThatThrownBy(() -> result.tree().add(Map.of())).isInstanceOf(UnsupportedOperationException.class);
+		assertThatThrownBy(() -> top.put("x", 1)).isInstanceOf(UnsupportedOperationException.class);
+		assertThatThrownBy(() -> kids.clear()).isInstanceOf(UnsupportedOperationException.class);
+		assertThatThrownBy(() -> kids.get(0).put("name", "x")).isInstanceOf(UnsupportedOperationException.class);
+	}
+
 	@Test
 	@DisplayName("非法配置启动即报错")
 	void rejectsBadConfig() {
