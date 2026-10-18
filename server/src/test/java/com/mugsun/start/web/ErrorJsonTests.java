@@ -2,24 +2,28 @@ package com.mugsun.start.web;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mugsun.testsupport.FailingContributorConfiguration;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.slf4j.LoggerFactory;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.system.CapturedOutput;
-import org.springframework.boot.test.system.OutputCaptureExtension;
+import org.springframework.core.env.Environment;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -37,7 +41,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
  */
 @SpringBootTest
 @AutoConfigureMockMvc
-@ExtendWith(OutputCaptureExtension.class)
 class ErrorJsonTests {
 
 	@Autowired
@@ -245,22 +248,65 @@ class ErrorJsonTests {
 	}
 
 	@Test
-	@DisplayName("生成过程异常：500 GENERATION_FAILED，服务端 ERROR 日志带同一个 requestId")
-	void generationFailed(CapturedOutput output) throws Exception {
-		MvcResult result = perform(zip().param("artifactId", FailingContributorConfiguration.TRIGGER)
-			.header(RequestIds.HEADER, "boom-req-0001"));
-		expectError(result, 500, "GENERATION_FAILED");
-		assertThat(output.getOut()).contains("ERROR [boom-req-0001]")
-			.contains("GENERATION_FAILED requestId=boom-req-0001")
-			.contains("artifactId=boom-fail")
-			.contains("simulated template failure");
+	@DisplayName("生成过程异常：500 GENERATION_FAILED，服务端 ERROR 日志带同一个 requestId（MDC）、参数和异常")
+	void generationFailed() throws Exception {
+		try (LogCapture logs = LogCapture.of(ApiExceptionHandler.class)) {
+			MvcResult result = perform(zip().param("artifactId", FailingContributorConfiguration.TRIGGER)
+				.header(RequestIds.HEADER, "boom-req-0001"));
+			expectError(result, 500, "GENERATION_FAILED");
+			ILoggingEvent event = logs.single(Level.ERROR);
+			assertThat(event.getMDCPropertyMap()).containsEntry(RequestIds.MDC_KEY, "boom-req-0001");
+			assertThat(event.getFormattedMessage()).contains("GENERATION_FAILED requestId=boom-req-0001")
+				.contains("artifactId=boom-fail");
+			assertThat(event.getThrowableProxy().getMessage()).contains("simulated template failure");
+		}
 	}
 
 	@Test
 	@DisplayName("参数被拒绝时 INFO 日志也带 requestId（MDC）")
-	void rejectedRequestLogged(CapturedOutput output) throws Exception {
-		perform(zip().param("groupId", "1x").header(RequestIds.HEADER, "reject-req-01"));
-		assertThat(output.getOut()).contains("[reject-req-01]").contains("生成请求被拒绝：INVALID_PARAMETER");
+	void rejectedRequestLogged() throws Exception {
+		try (LogCapture logs = LogCapture.of(MugsunProjectGenerationController.class)) {
+			perform(zip().param("groupId", "1x").header(RequestIds.HEADER, "reject-req-01"));
+			ILoggingEvent event = logs.single(Level.INFO);
+			assertThat(event.getMDCPropertyMap()).containsEntry(RequestIds.MDC_KEY, "reject-req-01");
+			assertThat(event.getFormattedMessage()).contains("生成请求被拒绝：INVALID_PARAMETER");
+		}
+	}
+
+	@Test
+	@DisplayName("日志 pattern 输出 requestId")
+	void logPatternHasRequestId(@Autowired Environment env) {
+		assertThat(env.getProperty("logging.pattern.level")).contains("%X{requestId");
+	}
+
+	/** 直接挂 Logback ListAppender，不依赖控制台输出（避免受同 JVM 其他测试的日志配置影响）。 */
+	static final class LogCapture implements AutoCloseable {
+
+		private final Logger logger;
+
+		private final ListAppender<ILoggingEvent> appender = new ListAppender<>();
+
+		private LogCapture(Class<?> type) {
+			this.logger = (Logger) LoggerFactory.getLogger(type);
+			this.appender.start();
+			this.logger.addAppender(this.appender);
+		}
+
+		static LogCapture of(Class<?> type) {
+			return new LogCapture(type);
+		}
+
+		ILoggingEvent single(Level level) {
+			List<ILoggingEvent> events = this.appender.list.stream().filter((e) -> e.getLevel() == level).toList();
+			assertThat(events).hasSize(1);
+			return events.get(0);
+		}
+
+		@Override
+		public void close() {
+			this.logger.detachAppender(this.appender);
+		}
+
 	}
 
 	@Test
