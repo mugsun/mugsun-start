@@ -3,7 +3,7 @@ import tseslint from 'typescript-eslint'
 import pluginVue from 'eslint-plugin-vue'
 
 export default tseslint.config(
-  { ignores: ['dist', 'node_modules', 'scripts'] },
+  { ignores: ['dist', 'node_modules', 'scripts', 'src/components.d.ts'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   ...pluginVue.configs['flat/recommended'],

@@ -1,5 +1,6 @@
+/* 选择器用 :root:root / html.dark:root 提高优先级：按需引入时 Element Plus 的变量样式会晚于本文件加载 */
 /* mugsun 品牌橙，与 docs.mugsun.com 共用色值；覆盖 Element Plus 主色，不残留 Element Plus 默认蓝 */
-:root {
+:root:root {
   --brand-1: #b4501c;
   --brand-2: #a84a1c;
   --brand-3: #8a3c16;
@@ -36,7 +37,7 @@
   --el-color-error-light-9: #f8eaea;
   --el-color-error-dark-2: #9e2626;
 }
-html.dark {
+html.dark:root {
   --brand-tint: rgba(180, 80, 28, 0.12);
   --link: #e08a4f;
   --focus: #e08a4f;
@@ -75,7 +76,7 @@ html.dark {
   --el-color-error-light-9: #31262a;
   --el-color-error-dark-2: #f9a7a7;
 }
-@media (max-width: 639px) { :root { --gutter: 16px; } }
+@media (max-width: 639px) { :root:root { --gutter: 16px; } }
 
 html, body { margin: 0; background: var(--el-bg-color); color: var(--el-text-color-primary); font-family: var(--el-font-family); font-size: 14px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
 /* 主按钮：悬停/按下按规格 */

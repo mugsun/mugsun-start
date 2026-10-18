@@ -6,8 +6,8 @@ const block = (sel: string) => css.slice(css.indexOf(sel + ' {'), css.indexOf('}
 describe('theme tokens', () => {
   it('danger red light/dark', () => {
     for (const v of ['--el-color-danger', '--el-color-error']) {
-      expect(block(':root')).toContain(`${v}: #c53030;`)
-      expect(block('html.dark')).toContain(`${v}: #f78989;`)
+      expect(block(':root:root')).toContain(`${v}: #c53030;`)
+      expect(block('html.dark:root')).toContain(`${v}: #f78989;`)
     }
   })
   it('no element default blue', () => {
