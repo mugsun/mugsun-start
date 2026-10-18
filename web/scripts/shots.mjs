@@ -1,4 +1,4 @@
-// 按规格第 9 节拍验收截图（01–16），另加 17/18 两张错误态。用法：BASE=http://localhost:3093 OUT=<目录> node scripts/shots.mjs
+// 按规格第 9 节拍验收截图（01–16），另加 17/18 两张错误态、19/20 两张 390 宽常驻模块收起/展开。用法：BASE=http://localhost:3093 OUT=<目录> node scripts/shots.mjs
 import { chromium } from '@playwright/test'
 import { mkdirSync } from 'node:fs'
 
@@ -66,10 +66,10 @@ await run('12-1440-generating', { query: '?mock=gen-slow' }, async (p) => {
   await ready(p); await p.click('.el-button--primary:has-text("下载 ZIP")'); await p.waitForTimeout(10_600)
 }, { full: false })
 await run('13-1440-generate-failed', { query: '?mock=gen-fail' }, async (p) => {
-  await ready(p); await p.click('.el-button--primary:has-text("下载 ZIP")'); await p.waitForSelector('.el-message--error'); await p.waitForTimeout(400)
+  await ready(p); await p.click('.el-button--primary:has-text("下载 ZIP")'); await p.waitForSelector('.el-message--error'); await p.mouse.move(5, 300); await p.waitForTimeout(400)
 }, { full: false })
 await run('13b-1440-dark-gen-fail', { dark: true, query: '?mock=gen-fail' }, async (p) => {
-  await ready(p); await p.click('.el-button--primary:has-text("下载 ZIP")'); await p.waitForSelector('.el-message--error'); await p.waitForTimeout(400)
+  await ready(p); await p.click('.el-button--primary:has-text("下载 ZIP")'); await p.waitForSelector('.el-message--error'); await p.mouse.move(5, 300); await p.waitForTimeout(400)
 }, { full: false })
 await run('14-1440-guide-drawer-light', {}, async (p) => {
   await ready(p); await p.click('.el-button--primary:has-text("下载 ZIP")'); await p.waitForSelector('.el-drawer__body'); await p.waitForTimeout(700)
@@ -99,12 +99,26 @@ async function contrast(p, sel) {
   for (const x of r) { const a = lum(x.fg), b = lum(x.bg); console.log(`contrast ${sel} | ${x.text} | ${x.fg} on ${x.bg} | ${((Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)).toFixed(2)}:1`) }
 }
 await run('17-1440-gen-429', { query: '?mock=gen-429' }, async (p) => {
-  await ready(p); await p.click('.el-button--primary:has-text("下载 ZIP")'); await p.waitForSelector('.el-message--error'); await p.waitForTimeout(400)
+  await ready(p); await p.click('.el-button--primary:has-text("下载 ZIP")'); await p.waitForSelector('.el-message--error'); await p.mouse.move(5, 300); await p.waitForTimeout(400)
   await contrast(p, '.el-message--error .el-message__content')
 }, { full: false })
 await run('18-1440-gen-invalid', { query: '?mock=gen-invalid' }, async (p) => {
-  await ready(p); await p.click('.el-button--primary:has-text("下载 ZIP")'); await p.waitForSelector('.field-err'); await p.waitForTimeout(500)
+  await ready(p); await p.click('.el-button--primary:has-text("下载 ZIP")'); await p.waitForSelector('.field-err'); await p.mouse.move(5, 300); await p.waitForTimeout(500)
   await contrast(p, '.field-err')
   await contrast(p, '.alert-row .el-alert__title')
+}, { full: false })
+await run('19-390-modules-collapsed', { w: 390 }, async (p) => {
+  await ready(p); await p.locator('#mg-0').scrollIntoViewIfNeeded(); await p.evaluate(() => window.scrollBy(0, -80)); await p.waitForTimeout(300)
+}, { full: false })
+await run('20-390-modules-expanded', { w: 390 }, async (p) => {
+  await ready(p); await p.locator('#mg-0').scrollIntoViewIfNeeded(); await p.evaluate(() => window.scrollBy(0, -80))
+  const b = p.locator('.more'); const y0 = (await b.boundingBox()).y
+  await b.click(); await p.mouse.move(5, 100); await p.waitForTimeout(300)
+  console.log(`toggle y before ${Math.round(y0)} after expand ${Math.round((await p.locator('.more').boundingBox()).y)} expanded=${await p.locator('.more').getAttribute('aria-expanded')}`)
+  const top = (await p.locator('#mg-0').boundingBox()).y
+  await b.click(); await p.waitForTimeout(200)
+  console.log(`after collapse toggle y ${Math.round((await p.locator('.more').boundingBox()).y)}; list top ${Math.round(top)} -> ${Math.round((await p.locator('#mg-0').boundingBox()).y)}`)
+  await b.click(); await p.mouse.move(5, 100); await p.waitForTimeout(300)
+  await p.locator('#mg-0').scrollIntoViewIfNeeded(); await p.evaluate(() => window.scrollBy(0, -80)); await p.waitForTimeout(200)
 }, { full: false })
 await browser.close()

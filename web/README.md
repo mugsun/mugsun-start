@@ -30,4 +30,4 @@ pnpm build
 
 ## 品牌素材
 - 顶栏 logo：`src/components/BrandLogo.vue`，28px 方标 `src/assets/brand/mugsun-icon-dark.svg`（与 mugsun-pc#72 同源）+ Saira 实时字标 MUGSUN（`src/assets/brand/fonts/mugsun-saira-600.woff2`，OFL 许可见同目录 `LICENSE-Saira-OFL.txt`）。
-- `public/favicon.*` 取自 mugsun-docs/public/brand/web。
+- `public/favicon.svg` 取自 mugsun-pc main（#72 压缩后的版本，约 3.5KB）；`public/favicon.ico` 取自 mugsun-docs/public/brand/web。

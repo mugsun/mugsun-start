@@ -11,5 +11,7 @@ export default defineConfig({
   ],
   resolve: { alias: { '@': '/src' } },
   server: { port: 3093, strictPort: true },
+  // 预构建常用依赖，避免按需引入时首次打开页面触发二次依赖优化和整页刷新
+  optimizeDeps: { include: ['vue', 'vue-i18n', '@vueuse/core', '@element-plus/icons-vue', 'element-plus/es'] },
   test: { environment: 'node', include: ['src/**/*.test.ts'], css: true, server: { deps: { inline: ['element-plus'] } } }
 })
