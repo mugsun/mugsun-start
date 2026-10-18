@@ -37,7 +37,7 @@ const en: typeof zh = {
     rateLimited: 'Too many requests. Try again in {s} seconds.',
     serverMessage: '{msg} (Error ID: {id})',
     unknownDependency: 'The request contains a module that does not exist. Refresh the page and try again. (Error ID: {id})',
-    invalidOther: 'The request is invalid. Refresh the page and try again. (Error ID: {id})',
+    invalidOther: 'Invalid request. Check the project details and try again (Error ID: {id})',
     unsupported: 'The request contains an option that is not supported yet. Refresh the page and try again. (Error ID: {id})',
     rateLimitedNoWait: 'Too many requests. Try again later.',
     timeout: 'Generation timed out. Try again later.',

@@ -21,14 +21,14 @@ describe('generate error message', () => {
   it('field="request" shows the server message as a generic error (guarded)', () => {
     const req = (m: string) => e('INVALID_PARAMETER', m, 400, [{ field: 'request', reason: 'invalid', message: m }])
     expect(zh(req('请求参数不正确。'))).toBe('请求参数不正确。（错误编号：r-1）')
-    expect(zh(req('java.lang.IllegalStateException: x\n\tat a.B'))).toBe('请求参数有误，请刷新页面后重试（错误编号：r-1）')
+    expect(zh(req('java.lang.IllegalStateException: x\n\tat a.B'))).toBe('请求参数有误，请检查项目信息后重试（错误编号：r-1）')
   })
   it('guard failures fall back to frontend text by code', () => {
     expect(zh(e('UNKNOWN_DEPENDENCY', '  '))).toBe('包含不存在的模块，请刷新页面后重试（错误编号：r-1）')
     expect(zh(e('UNSUPPORTED_OPTION', 'Not supported.'))).toBe('请求包含一期不支持的选项，请刷新页面后重试（错误编号：r-1）')
     expect(en(e('UNSUPPORTED_OPTION', '一期不支持'))).toContain('not supported yet')
-    expect(en(e('INVALID_PARAMETER', 'x'.repeat(201)))).toContain('The request is invalid')
-    expect(en(e('INVALID_PARAMETER', 'Boom Exception'))).toContain('The request is invalid')
+    expect(en(e('INVALID_PARAMETER', 'x'.repeat(201)))).toContain('Invalid request. Check the project details')
+    expect(en(e('INVALID_PARAMETER', 'Boom Exception'))).toContain('Invalid request. Check the project details')
   })
   it('5xx and INTERNAL_ERROR never show server text', () => {
     expect(zh(e('GENERATION_FAILED', '生成失败，请稍后重试。', 500))).toBe('生成失败，请稍后重试（错误编号：r-1）')

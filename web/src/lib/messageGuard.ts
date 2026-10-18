@@ -13,8 +13,8 @@ export const MAX_SERVER_MESSAGE = 200
 const CJK_IDEOGRAPH = /[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/
 /** 英文界面下出现即视为语言不一致：表意文字 + 中文标点 + 全角符号 */
 const CJK_ANY = /[\u3000-\u303f\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uff00-\uffef]/
-/** 像堆栈：换行；独立单词 at 后跟空白（如 "\tat com.x"，不会误伤 that/what）；Exception */
-const STACK = [/[\r\n]/, /\bat\s/, /Exception/]
+/** 像堆栈：换行；堆栈行格式 at 包.类.方法(（如 "at com.mugsun.Foo.bar(Foo.java:12)"，不误伤 "Try again at a later time"）；Exception */
+const STACK = [/[\r\n]/, /\bat [\w.$]+\(/, /Exception/]
 
 export type GuardFail = 'empty' | 'tooLong' | 'language' | 'serverError' | 'stack'
 

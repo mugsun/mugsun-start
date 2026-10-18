@@ -35,7 +35,7 @@ export default {
     rateLimited: '请求过于频繁，请在 {s} 秒后重试',
     serverMessage: '{msg}（错误编号：{id}）',
     unknownDependency: '包含不存在的模块，请刷新页面后重试（错误编号：{id}）',
-    invalidOther: '请求参数有误，请刷新页面后重试（错误编号：{id}）',
+    invalidOther: '请求参数有误，请检查项目信息后重试（错误编号：{id}）',
     unsupported: '请求包含一期不支持的选项，请刷新页面后重试（错误编号：{id}）',
     rateLimitedNoWait: '请求过于频繁，请稍后重试',
     timeout: '生成超时，请稍后重试',

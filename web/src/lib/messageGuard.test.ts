@@ -9,7 +9,9 @@ describe('server message guard', () => {
   it('passes normal localized messages', () => {
     expect(guardMessage('未知的模块：legacy。', zh)).toBeNull()
     expect(guardMessage('Unknown module: legacy.', en)).toBeNull()
-    expect(guardMessage('Check the fields that are marked.', en)).toBeNull() // "that " 不算 "at "
+    expect(guardMessage('Check the fields that are marked.', en)).toBeNull()
+    expect(guardMessage('Try again at a later time', en)).toBeNull()
+    expect(guardMessage('失败 at com.mugsun.X', zh)).toBeNull() // 没有 "(" 不算堆栈行
     expect(guardMessage('Group 只能包含小写字母', zh)).toBeNull()
   })
   it('1) empty or whitespace', () => {
@@ -32,7 +34,9 @@ describe('server message guard', () => {
   })
   it('5) stack-like: newline, "at ", Exception', () => {
     expect(guardMessage('第一行\n第二行', zh)).toBe('stack')
-    expect(guardMessage('失败 at com.mugsun.X', zh)).toBe('stack')
+    expect(guardMessage('失败 at com.mugsun.Foo.bar(Foo.java:12)', zh)).toBe('stack')
+    expect(guardMessage('at com.mugsun.Foo.bar(Foo.java:12)', en)).toBe('stack')
+    expect(guardMessage('at Foo$Inner.run(Foo.java:3)', en)).toBe('stack')
     expect(guardMessage('NullPointerException 空指针', zh)).toBe('stack')
     expect(guardMessage('java.lang.IllegalStateException: boom\n\tat com.x.Y(Y.java:1)', en)).toBe('stack')
   })
