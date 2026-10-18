@@ -68,7 +68,9 @@ watch(previewCooldownUntil, (u) => {
 })
 const retryIn = computed(() => Math.max(0, Math.ceil((previewCooldownUntil.value - now.value) / 1000)))
 const limited = computed(() => previewError.value?.code === 'RATE_LIMITED')
-const rateText = computed(() => previewError.value?.retryAfter !== undefined ? t('bar.rateLimited', { s: previewError.value.retryAfter }) : t('bar.rateLimitedNoWait'))
+/** 冷却中：N 取收到 429 时的值不变；冷却结束：切换成「现在可以重试」（面板文案不在 live region 里，切换不播报） */
+const rateText = computed(() => retryIn.value <= 0 ? t('preview.rateLimitedReady')
+  : previewError.value?.retryAfter !== undefined ? t('bar.rateLimited', { s: previewError.value.retryAfter }) : t('bar.rateLimitedNoWait'))
 onBeforeUnmount(() => { clearTimeout(hlTimer); clearTimeout(skTimer); clearInterval(tick) })
 </script>
 

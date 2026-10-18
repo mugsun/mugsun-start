@@ -30,6 +30,45 @@ async function mountLimited(retryAfter = 3) {
 const btn = (w: ReturnType<typeof mount>) => w.find('.perr button')
 
 describe('preview 429 panel', () => {
+  it('panel text: "N 秒后" during cooldown, "现在可以重试" after; announced only once at the end; error ID kept', async () => {
+    const { w } = await mountLimited(2)
+    const panel = () => w.find('.perr').text()
+    expect(panel()).toContain('请求过于频繁，请在 2 秒后重试')
+    expect(w.find('.perr').attributes('role')).toBeUndefined()
+    const announced: string[] = []
+    const live = w.find('[aria-live]').element
+    new MutationObserver(() => announced.push(live.textContent ?? '')).observe(live, { childList: true, characterData: true, subtree: true })
+    await vi.advanceTimersByTimeAsync(1000); await nextTick()
+    expect(panel()).toContain('请在 2 秒后重试')
+    await vi.advanceTimersByTimeAsync(1000); await nextTick(); await Promise.resolve()
+    expect(panel()).toContain('请求过于频繁，现在可以重试')
+    expect(panel()).not.toContain('秒后')
+    expect(panel()).toContain('错误编号：r-9')
+    expect(announced).toEqual(['可以重试'])
+    expect(liveTexts(w)).toEqual(['可以重试'])
+    await vi.advanceTimersByTimeAsync(5000); await nextTick(); await Promise.resolve()
+    expect(announced).toEqual(['可以重试'])
+  })
+  it('stale note switches too; it is not a live region', async () => {
+    const { w, spy } = await mountLimited(2)
+    spy.mockResolvedValueOnce(ok)
+    await vi.advanceTimersByTimeAsync(2000)
+    await w.find('.perr button').trigger('click'); await flushPromises(); await nextTick()
+    spy.mockRejectedValueOnce(new ApiError(429, 'RATE_LIMITED', 'x', 'r-10', [], 2))
+    await s.loadPreview(); await nextTick()
+    const note = () => w.find('.note')
+    expect(note().text()).toContain('请在 2 秒后重试')
+    expect(note().attributes('role')).toBeUndefined()
+    await vi.advanceTimersByTimeAsync(2000); await nextTick()
+    expect(note().text()).toContain('请求过于频繁，现在可以重试')
+    expect(liveTexts(w)).toEqual(['可以重试'])
+  })
+  it('en ready text', async () => {
+    i18n.global.locale.value = 'en'
+    const { w } = await mountLimited(1)
+    await vi.advanceTimersByTimeAsync(1000); await nextTick()
+    expect(w.find('.perr').text()).toContain('Too many requests. You can retry now.')
+  })
   it('message keeps the 429 value; only the button counts down (zh full-width brackets)', async () => {
     const { w } = await mountLimited(3)
     expect(w.find('.perr').text()).toContain('请求过于频繁，请在 3 秒后重试')
