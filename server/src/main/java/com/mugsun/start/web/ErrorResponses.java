@@ -70,16 +70,31 @@ public class ErrorResponses {
 		return body;
 	}
 
+	/** 429 没有给出等待时间时用的 {@code Retry-After}（秒）：契约要求每个 429 都带整数秒的 Retry-After。 */
+	public static final long DEFAULT_RETRY_AFTER_SECONDS = 1;
+
+	/** 429 一律带 Retry-After：调用方没给时用缺省值；其他状态码不带。 */
+	static Long retryAfter(ErrorCode code, Long retryAfterSeconds) {
+		if (code != ErrorCode.RATE_LIMITED) {
+			return retryAfterSeconds;
+		}
+		return (retryAfterSeconds != null) ? Math.max(1, retryAfterSeconds) : DEFAULT_RETRY_AFTER_SECONDS;
+	}
+
 	public ResponseEntity<Object> entity(HttpServletRequest request, MugsunRequestException ex) {
-		return entity(request, ex.code(), ex.problems(), retryArgs(ex), ex.retryAfterSeconds());
+		return entity(request, ex.code(), ex.problems(), null, ex.retryAfterSeconds());
 	}
 
 	public ResponseEntity<Object> entity(HttpServletRequest request, ErrorCode code, List<FieldProblem> problems,
 			Object[] args, Long retryAfterSeconds) {
 		ResponseEntity.BodyBuilder builder = ResponseEntity.status(code.status())
 			.contentType(JSON_UTF8);
-		if (retryAfterSeconds != null) {
-			builder.header(HttpHeaders.RETRY_AFTER, Long.toString(retryAfterSeconds));
+		Long retry = retryAfter(code, retryAfterSeconds);
+		if (retry != null) {
+			builder.header(HttpHeaders.RETRY_AFTER, Long.toString(retry));
+			if (args == null || args.length == 0) {
+				args = new Object[] { retry.toString() };
+			}
 		}
 		return builder.body(body(code, problems, args, requestId(request)));
 	}
@@ -90,11 +105,12 @@ public class ErrorResponses {
 		response.resetBuffer();
 		response.setStatus(ex.code().status().value());
 		response.setContentType(JSON_UTF8.toString());
-		if (ex.retryAfterSeconds() != null) {
-			response.setHeader(HttpHeaders.RETRY_AFTER, Long.toString(ex.retryAfterSeconds()));
+		Long retry = retryAfter(ex.code(), ex.retryAfterSeconds());
+		if (retry != null) {
+			response.setHeader(HttpHeaders.RETRY_AFTER, Long.toString(retry));
 		}
-		this.mapper.writeValue(response.getOutputStream(), body(ex.code(), ex.problems(), retryArgs(ex),
-				requestId(request)));
+		this.mapper.writeValue(response.getOutputStream(), body(ex.code(), ex.problems(),
+				(retry != null) ? new Object[] { retry.toString() } : null, requestId(request)));
 	}
 
 	/** 状态码到错误码：Spring MVC 自身异常与 /error 共用。 */
@@ -115,21 +131,18 @@ public class ErrorResponses {
 		List<FieldProblem> problems = (code == ErrorCode.INVALID_PARAMETER)
 				? List.of(new FieldProblem("request", "invalid")) : List.of();
 		Object[] args = (code == ErrorCode.INVALID_PARAMETER) ? null : new Object[0];
-		if (code == ErrorCode.RATE_LIMITED) {
-			args = new Object[] { "1" };
+		ResponseEntity.BodyBuilder builder = ResponseEntity.status(status).contentType(JSON_UTF8);
+		Long retry = retryAfter(code, null);
+		if (retry != null) {
+			args = new Object[] { retry.toString() };
+			builder.header(HttpHeaders.RETRY_AFTER, Long.toString(retry));
 		}
-		return ResponseEntity.status(status)
-			.contentType(JSON_UTF8)
-			.body(body(code, problems, args, requestId(request)));
+		return builder.body(body(code, problems, args, requestId(request)));
 	}
 
 	public static String requestId(HttpServletRequest request) {
 		Object id = (request != null) ? request.getAttribute(RequestIds.ATTRIBUTE) : null;
 		return (id != null) ? id.toString() : null;
-	}
-
-	private static Object[] retryArgs(MugsunRequestException ex) {
-		return (ex.retryAfterSeconds() != null) ? new Object[] { ex.retryAfterSeconds().toString() } : null;
 	}
 
 	private Map<String, Object> detail(FieldProblem p, Locale locale) {

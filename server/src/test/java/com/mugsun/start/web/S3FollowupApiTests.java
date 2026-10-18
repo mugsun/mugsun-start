@@ -33,6 +33,9 @@ class S3FollowupApiTests {
 	@Autowired
 	private MockMvc mvc;
 
+	@Autowired
+	private ErrorResponses errors;
+
 	private final ObjectMapper om = new ObjectMapper();
 
 	private MvcResult perform(MockHttpServletRequestBuilder builder) throws Exception {
@@ -166,6 +169,46 @@ class S3FollowupApiTests {
 
 		MvcResult query = perform(post("/starter.zip").param("artifactId", "shop"));
 		assertThat(query.getResponse().getStatus()).isEqualTo(200);
+	}
+
+	@Test
+	@DisplayName("下载文件名取 baseDir，与 zip 根目录一致；未传 baseDir 时是 artifactId；tgz 同理")
+	void downloadFileNameFollowsBaseDir() throws Exception {
+		MvcResult custom = perform(get("/starter.zip").param("artifactId", "shop").param("baseDir", "my-root"));
+		assertThat(custom.getResponse().getStatus()).isEqualTo(200);
+		assertThat(custom.getResponse().getHeader("Content-Disposition"))
+			.isEqualTo("attachment; filename=\"my-root.zip\"");
+		assertThat(entries(custom)).isNotEmpty().allMatch((n) -> n.startsWith("my-root/"));
+
+		MvcResult defaulted = perform(get("/starter.zip").param("artifactId", "shop").param("baseDir", " "));
+		assertThat(defaulted.getResponse().getHeader("Content-Disposition"))
+			.isEqualTo("attachment; filename=\"shop.zip\"");
+		assertThat(entries(defaulted)).allMatch((n) -> n.startsWith("shop/"));
+
+		MvcResult tgz = perform(get("/starter.tgz").param("artifactId", "shop").param("baseDir", "my-root"));
+		assertThat(tgz.getResponse().getStatus()).isEqualTo(200);
+		assertThat(tgz.getResponse().getHeader("Content-Disposition"))
+			.isEqualTo("attachment; filename=\"my-root.tar.gz\"");
+	}
+
+	@Test
+	@DisplayName("每个 429 都带整数秒 Retry-After：/error 按 429 分派、未给等待时间的 RATE_LIMITED 异常")
+	void every429HasRetryAfter() throws Exception {
+		MvcResult viaError = perform(get("/error")
+			.requestAttr(jakarta.servlet.RequestDispatcher.ERROR_STATUS_CODE, 429));
+		assertThat(viaError.getResponse().getStatus()).isEqualTo(429);
+		assertThat(viaError.getResponse().getHeader("Retry-After")).isEqualTo("1");
+		assertThat(json(viaError).path("code").asText()).isEqualTo("RATE_LIMITED");
+		assertThat(json(viaError).path("message").asText()).doesNotContain("{0}");
+
+		assertThat(ErrorResponses.retryAfter(ErrorCode.RATE_LIMITED, null)).isEqualTo(1L);
+		assertThat(ErrorResponses.retryAfter(ErrorCode.RATE_LIMITED, 0L)).isEqualTo(1L);
+		assertThat(ErrorResponses.retryAfter(ErrorCode.RATE_LIMITED, 7L)).isEqualTo(7L);
+		assertThat(ErrorResponses.retryAfter(ErrorCode.NOT_FOUND, null)).isNull();
+		org.springframework.http.ResponseEntity<Object> entity = this.errors.entity(null,
+				new MugsunRequestException(ErrorCode.RATE_LIMITED, List.of()));
+		assertThat(entity.getStatusCode().value()).isEqualTo(429);
+		assertThat(entity.getHeaders().getFirst("Retry-After")).isEqualTo("1");
 	}
 
 }

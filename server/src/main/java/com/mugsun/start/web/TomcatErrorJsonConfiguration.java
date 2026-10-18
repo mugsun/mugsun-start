@@ -25,6 +25,7 @@ import org.springframework.boot.web.server.WebServerFactoryCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.i18n.LocaleContextHolder;
+import org.springframework.http.HttpHeaders;
 
 /**
  * Tomcat 在进入应用之前就拒绝的请求（请求行或请求头解析失败，例如 URL 里有非法字符的 400）不会转到 {@code /error}，
@@ -99,10 +100,16 @@ public class TomcatErrorJsonConfiguration {
 			try {
 				LocaleContextHolder.setLocale(request.getLocale());
 				request.setAttribute(RequestIds.ATTRIBUTE, id);
-				Map<String, Object> body = responses.body(ErrorResponses.codeFor(status),
-						(ErrorResponses.codeFor(status) == ErrorCode.INVALID_PARAMETER)
-								? List.of(new FieldProblem("request", "invalid")) : List.of(),
-						(ErrorResponses.codeFor(status) == ErrorCode.INVALID_PARAMETER) ? null : new Object[0], id);
+				ErrorCode code = ErrorResponses.codeFor(status);
+				Long retry = ErrorResponses.retryAfter(code, null);
+				Object[] args = (code == ErrorCode.INVALID_PARAMETER) ? null
+						: (retry != null) ? new Object[] { retry.toString() } : new Object[0];
+				Map<String, Object> body = responses.body(code,
+						(code == ErrorCode.INVALID_PARAMETER) ? List.of(new FieldProblem("request", "invalid")) : List.of(),
+						args, id);
+				if (retry != null) {
+					response.setHeader(HttpHeaders.RETRY_AFTER, Long.toString(retry));
+				}
 				byte[] bytes = this.mapper.writeValueAsBytes(body);
 				response.setContentType(ErrorResponses.JSON_UTF8.toString());
 				response.setHeader(RequestIds.HEADER, id);

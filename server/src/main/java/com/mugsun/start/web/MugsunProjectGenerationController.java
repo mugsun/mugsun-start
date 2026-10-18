@@ -12,6 +12,8 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.context.request.RequestContextHolder;
@@ -38,17 +40,34 @@ public class MugsunProjectGenerationController extends ProjectGenerationControll
 
 	/**
 	 * 下载 zip：与预览共用并发名额（{@link PreviewGuard#withPermit}），名额用完时 429 {@code RATE_LIMITED} + Retry-After。
-	 * 映射注解（{@code /starter.zip}）继承自父类方法。
+	 * 文件名与 zip 内的根目录一致，取 baseDir（缺省 = artifactId，见 {@link ProjectRequestValidator#applyBaseDirDefault}）；
+	 * initializr 默认用 artifactId，传了不同的 baseDir 时两者会不一致。映射注解（{@code /starter.zip}）继承自父类方法。
 	 */
 	@Override
 	public ResponseEntity<byte[]> springZip(MugsunProjectRequest request) throws IOException {
-		return this.guard.withPermit(() -> super.springZip(request));
+		return withFileName(this.guard.withPermit(() -> super.springZip(request)), request, ".zip");
 	}
 
 	/** 下载 tgz：同上。 */
 	@Override
 	public ResponseEntity<byte[]> springTgz(MugsunProjectRequest request) throws IOException {
-		return this.guard.withPermit(() -> super.springTgz(request));
+		return withFileName(this.guard.withPermit(() -> super.springTgz(request)), request, ".tar.gz");
+	}
+
+	/** 把 Content-Disposition 的文件名换成 baseDir + 扩展名；baseDir 已按 §4.2 校验（字母数字与 ._-），无需转义。 */
+	static ResponseEntity<byte[]> withFileName(ResponseEntity<byte[]> response, MugsunProjectRequest request,
+			String extension) {
+		String base = request.getBaseDir();
+		if (base == null || base.isBlank()) {
+			base = request.getArtifactId();
+		}
+		if (base == null || base.isBlank()) {
+			return response;
+		}
+		HttpHeaders headers = new HttpHeaders();
+		headers.putAll(response.getHeaders());
+		headers.setContentDisposition(ContentDisposition.attachment().filename(base + extension).build());
+		return new ResponseEntity<>(response.getBody(), headers, response.getStatusCode());
 	}
 
 	@Override
