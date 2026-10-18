@@ -121,6 +121,15 @@ describe('mock via http api', () => {
     setMockMode('gen-415')
     expect(await api.generate(base, { locale: 'en' }).catch((x) => x)).toMatchObject({ status: 415, code: 'UNSUPPORTED_MEDIA_TYPE', message: "This request body format isn't supported." })
   })
+  it('download-429: Retry-After 2; every 429 carries Retry-After; zip name = baseDir.zip', async () => {
+    setMockMode('download-429')
+    expect(await api.generate(base, { locale: 'zh-CN' }).catch((x) => x)).toMatchObject({ status: 429, code: 'RATE_LIMITED', retryAfter: 2, message: '请求过于频繁，请在 2 秒后重试。' })
+    setMockMode(null)
+    const g = await api.generate({ ...base, baseDir: 'shop-root', artifactId: 'shop' }, { locale: 'en' })
+    expect(g.fileName).toBe('shop-root.zip')
+    const g2 = await api.generate({ ...base, baseDir: '', artifactId: 'shop' }, { locale: 'en' })
+    expect(g2.fileName).toBe('shop.zip')
+  })
   it('preview root falls back to artifactId when baseDir is empty (#10)', () => {
     expect(buildPreview({ ...base, baseDir: '' }, 'r').root).toBe('demo')
     expect(buildPreview({ ...base, baseDir: undefined }, 'r').root).toBe('demo')

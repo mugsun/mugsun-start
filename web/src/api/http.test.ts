@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { toFormParams, toJsonBody, parseRetryAfter, parseContentDisposition, toApiError, createHttpApi, type FetchLike } from './http'
+import { toFormParams, toJsonBody, parseRetryAfter, parseContentDisposition, toApiError, createHttpApi, downloadFileName, type FetchLike } from './http'
 import { ApiError, type ProjectRequest } from './types'
 
 const req: ProjectRequest = {
@@ -174,3 +174,19 @@ describe('empty values are treated the same in zip and preview requests', () => 
     expect(parseContentDisposition("attachment; filename*=UTF-8''..%2F..%5Cx.zip")).toBe('.._.._x.zip')
   })
 })
+
+describe('download file name (#10 §4.2)', () => {
+  const r = { baseDir: 'shop-admin', artifactId: 'shop' }
+  it('prefers the header: filename* (decoded) over filename', () => {
+    expect(downloadFileName(`attachment; filename="x.zip"; filename*=UTF-8''%E4%B8%AD%E6%96%87.zip`, r, '.zip')).toBe('中文.zip')
+    expect(downloadFileName('attachment; filename="shop-admin.tar.gz"', r, '.tar.gz')).toBe('shop-admin.tar.gz')
+  })
+  it('falls back to baseDir, then artifactId, plus extension', () => {
+    expect(downloadFileName(null, r, '.zip')).toBe('shop-admin.zip')
+    expect(downloadFileName('attachment', r, '.tar.gz')).toBe('shop-admin.tar.gz')
+    expect(downloadFileName(null, { baseDir: '', artifactId: 'shop' }, '.zip')).toBe('shop.zip')
+    expect(downloadFileName(null, { baseDir: '  ', artifactId: 'shop' }, '.zip')).toBe('shop.zip')
+    expect(downloadFileName(null, { artifactId: 'shop' }, '.tar.gz')).toBe('shop.tar.gz')
+  })
+})
+

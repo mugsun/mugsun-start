@@ -1,4 +1,4 @@
-// 按规格第 9 节拍验收截图（01–16），另加 17/18 两张错误态、19/20 两张 390 宽常驻模块收起/展开、21 服务端堆栈 message 被守卫替换、22 预览 429 等待秒数、23 artifactId 连字符推导包名（#10）。用法：BASE=http://localhost:3093 OUT=<目录> node scripts/shots.mjs
+// 按规格第 9 节拍验收截图（01–16），另加 17/18 两张错误态、19/20 两张 390 宽常驻模块收起/展开、21 服务端堆栈 message 被守卫替换、22 预览 429 等待秒数、23 artifactId 连字符推导包名（#10）、24/24b 下载 429 冷却中/结束。用法：BASE=http://localhost:3093 OUT=<目录> node scripts/shots.mjs
 import { chromium } from '@playwright/test'
 import { mkdirSync } from 'node:fs'
 
@@ -144,4 +144,16 @@ await run('23-1440-derive-hyphen', {}, async (p) => {
   await ready(p); await p.fill('#f-artifactId', 'shop-admin'); await p.locator('#f-artifactId').blur(); await p.waitForTimeout(800)
   console.log('packageName =', await p.inputValue('#f-packageName'))
 }, { full: false })
+async function download429(p, waitEnd = false) {
+  await ready(p); await p.click('.bar .tipwrap .el-button'); await p.waitForSelector('.bar .rate')
+  await p.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
+  if (waitEnd) await p.waitForFunction(() => !document.querySelector('.bar .tipwrap .el-button').disabled, null, { timeout: 10000 })
+  else await p.waitForTimeout(300)
+  await p.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
+  await p.mouse.move(5, 5); await p.waitForTimeout(200)
+  console.log('bar:', (await p.locator('.bar .rate').innerText()), '| button:', (await p.locator('.bar .tipwrap .el-button').innerText()).trim(), '| live:', await p.locator('.bar [aria-live]').innerText())
+  await contrast(p, '.bar .rate')
+}
+await run('24-1440-download-429', { query: '?mock=download-429' }, (p) => download429(p), { full: false })
+await run('24b-1440-download-429-ended', { query: '?mock=download-429' }, (p) => download429(p, true), { full: false })
 await browser.close()

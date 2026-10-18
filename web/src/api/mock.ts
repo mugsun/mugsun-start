@@ -17,6 +17,7 @@
  *   preview-body-invalid 预览返回 400 INVALID_PARAMETER，details [{field:"body",reason:"invalid"}]（#5：JSON 解析失败）
  *   gen-406 / gen-415 生成返回 406 NOT_ACCEPTABLE / 415 UNSUPPORTED_MEDIA_TYPE（#10）
  *   preview-429   预览返回 429 RATE_LIMITED，Retry-After: 30（#9 并发名额等待超时）
+ *   download-429  下载返回 429 RATE_LIMITED，Retry-After: 2（#9：zip/tgz 与预览共用并发名额）
  *   preview-429-short 同上，Retry-After: 2（看倒计时结束）
  *   preview-modules 预览节点带 module（S4 计划字段，#5 不返回；默认不带）
  *   请求里出现非默认的 bootVersion/javaVersion/packaging/language/configurationFileFormat 也返回 UNSUPPORTED_OPTION
@@ -204,6 +205,8 @@ function detail(p: Problem, lang: 'zh' | 'en'): ErrorDetail {
 }
 /** 与后端 ErrorResponses#body 一致：INVALID_PARAMETER 只有一项时 message 取该项，否则取错误码文案 */
 function problemResponse(status: number, code: string, problems: Problem[], lang: 'zh' | 'en', id: string, extra: Record<string, string> = {}) {
+  // #10：每个 429 都带 Retry-After，缺省 1 秒
+  if (status === 429 && extra['Retry-After'] === undefined) extra = { ...extra, 'Retry-After': '1' }
   const details = problems.map((p) => detail(p, lang))
   const joined = [...new Set(problems.map((p) => String(p.args?.[0] ?? p.field)))].join(', ')
   const message = code === 'INVALID_PARAMETER' && details.length === 1 ? (details[0].message ?? '') : fmt((ERROR[code] ?? l(code, code))[lang], [extra['Retry-After'] ?? joined])
@@ -317,6 +320,7 @@ export async function mockFetch(url: string, init?: RequestInit): Promise<Respon
     if (mode === 'gen-fail') return problemResponse(500, 'GENERATION_FAILED', [], lang, id)
     if (mode === 'gen-406') return problemResponse(406, 'NOT_ACCEPTABLE', [], lang, id)
     if (mode === 'gen-415') return problemResponse(415, 'UNSUPPORTED_MEDIA_TYPE', [], lang, id)
+    if (mode === 'download-429') return problemResponse(429, 'RATE_LIMITED', [], lang, id, { 'Retry-After': '2' })
     if (mode === 'gen-429') return problemResponse(429, 'RATE_LIMITED', [], lang, id, { 'Retry-After': '30' })
     const req = readRequest(init)
     if (mode === 'gen-unknown-dep') return problemResponse(400, 'UNKNOWN_DEPENDENCY', [{ field: 'dependencies', reason: 'unknown', args: ['legacy-report'] }], lang, id)
@@ -335,7 +339,7 @@ export async function mockFetch(url: string, init?: RequestInit): Promise<Respon
     }
     const bad = serverCheck(req, lang, id)
     if (bad) return bad
-    const root = req.baseDir || req.artifactId
+    const root = req.baseDir?.trim() || req.artifactId
     const text = `前端 mock 数据：真实接口接入前不生成工程。\n${JSON.stringify(req, null, 2)}\n`
     return new Response(text, { status: 200, headers: { 'Content-Type': 'application/zip', 'Content-Disposition': `attachment; filename="${root}.zip"`, 'X-Request-Id': id, 'X-Mugsun-Template': 'boot=mock;pc=mock' } })
   }

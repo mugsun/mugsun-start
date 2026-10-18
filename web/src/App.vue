@@ -14,7 +14,7 @@ import ActionBar from './components/ActionBar.vue'
 import StartDrawer from './components/StartDrawer.vue'
 import { api, ApiError, isAbort } from './api'
 import { generateErrorMessage } from './lib/errors'
-import { form, scopeTypes, loadMetadata, applyQuery, toRequest, metaState, applyServerErrors } from './lib/store'
+import { form, scopeTypes, loadMetadata, applyQuery, toRequest, metaState, applyServerErrors, downloadCooldown, downloadError, onDownloadRateLimited } from './lib/store'
 import { toQuery } from './lib/share'
 
 const { t, locale } = useI18n()
@@ -36,7 +36,8 @@ applyQuery(location.search)
 onMounted(() => { document.documentElement.lang = locale.value; loadMetadata() })
 
 async function download() {
-  if (generating.value || metaState.value !== 'ready') return
+  if (generating.value || metaState.value !== 'ready' || downloadCooldown.active.value) return
+  downloadError.value = null
   const bad = (await formRef.value?.validateAll()) ?? 0
   invalidCount.value = bad
   if (bad) return
@@ -64,6 +65,8 @@ async function download() {
 /** §4.4：能映射的字段错误回填表单；其余见 lib/errors.ts */
 function handleGenerateError(e: unknown) {
   const err = e instanceof ApiError ? e : null
+  // 429：底栏冷却倒计时（与预览各自独立），不弹 ElMessage（它是 role=alert，且会消失）
+  if (err?.code === 'RATE_LIMITED') { onDownloadRateLimited(err); return }
   const n = applyServerErrors(err)
   if (n) {
     invalidCount.value = n

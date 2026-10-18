@@ -9,6 +9,7 @@ import { loc } from './l10n'
 import { fieldErrorKey, formDetails, FORM_FIELDS } from './fieldErrors'
 import { safeServerMessage } from './messageGuard'
 import { i18n } from '@/i18n'
+import { createCooldown, COOLDOWN_DEFAULT_S } from './cooldown'
 
 export { FULLSTACK, BACKEND } from './scope'
 
@@ -136,10 +137,10 @@ export const preview = ref<PreviewResult | null>(null)
 export const previewState = ref<'idle' | 'loading' | 'ready' | 'error'>('idle')
 export const previewError = ref<ApiError | null>(null)
 let previewCtrl: AbortController | null = null
-/** 429（#9 并发名额等待超时）后的冷却：截止时间戳；冷却期内不发预览请求，结束后最多补发一次 */
-export const previewCooldownUntil = ref(0)
-/** 没有 Retry-After 时的冷却秒数 */
-export const PREVIEW_COOLDOWN_DEFAULT = 5
+/** 预览 429（#9 并发名额等待超时）后的冷却；冷却期内不发预览请求，结束后最多补发一次。与下载冷却互相独立 */
+export const previewCooldown = createCooldown()
+export const previewCooldownUntil = previewCooldown.until
+export const PREVIEW_COOLDOWN_DEFAULT = COOLDOWN_DEFAULT_S
 let pendingAfterCooldown: ReturnType<typeof setTimeout> | undefined
 /** 收到 429 的那次请求参数；冷却结束时只有参数变了（冷却期间改过表单）才自动补发 */
 let limitedKey: string | null = null
@@ -169,16 +170,25 @@ export async function loadPreview() {
     previewError.value = e instanceof ApiError ? e : null
     if (e instanceof ApiError && e.code === 'RATE_LIMITED') {
       limitedKey = requestKey()
-      previewCooldownUntil.value = Date.now() + (e.retryAfter ?? PREVIEW_COOLDOWN_DEFAULT) * 1000
+      previewCooldown.start(e.retryAfter)
     }
     applyServerErrors(e)
     previewState.value = 'error'
   }
 }
 
+/* ---------- 下载 429（#9：/starter.zip、/starter.tgz 与预览共用并发名额）：独立的冷却，不影响预览 ---------- */
+export const downloadCooldown = createCooldown()
+/** 底栏显示的下载错误（目前只有 429 走这里，其余错误仍用 ElMessage） */
+export const downloadError = ref<ApiError | null>(null)
+export function onDownloadRateLimited(e: ApiError) {
+  downloadError.value = e
+  downloadCooldown.start(e.retryAfter)
+}
+
 /** 测试用：重置模块级状态 */
 export function __resetForTest() {
-  metaCtrl?.abort(); previewCtrl?.abort(); clearTimeout(pendingAfterCooldown); previewCooldownUntil.value = 0
+  metaCtrl?.abort(); previewCtrl?.abort(); clearTimeout(pendingAfterCooldown); previewCooldown.reset(); downloadCooldown.reset(); downloadError.value = null
   metaCtrl = previewCtrl = null
   metadata.value = null; metaState.value = 'loading'; preview.value = null; previewState.value = 'idle'
   fromShare = false; depsFromShare = false; shareKeys.clear()

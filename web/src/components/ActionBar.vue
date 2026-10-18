@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { form, scopeTypes, metaState } from '@/lib/store'
+import { form, scopeTypes, metaState, downloadCooldown, downloadError } from '@/lib/store'
+import { useCooldownView } from '@/lib/cooldown'
 
 defineProps<{ narrow: boolean; generating: boolean; slow: boolean; invalidCount: number; showGuide: boolean }>()
 const emit = defineEmits<{ download: []; share: []; guide: []; closeAlert: [] }>()
@@ -11,6 +12,11 @@ const key = isMac ? '⌘' : 'Ctrl'
 const scopeName = computed(() => scopeTypes.value.find((v) => v.id === form.type)?.name ?? '')
 const summary = computed(() => t('bar.summary', { scope: scopeName.value, n: form.dependencies.length, pkg: form.packageName }))
 const blocked = computed(() => metaState.value !== 'ready')
+/** 下载 429：与预览同一套冷却文案与播报（lib/cooldown.ts），冷却各自独立 */
+const live = ref('')
+const { limited, text: rateText, button: retryLabel } = useCooldownView(downloadCooldown, downloadError, live, t)
+const cooling = downloadCooldown.active
+const rateHint = computed(() => limited.value ? t('bar.serverMessage', { msg: rateText.value, id: downloadError.value?.requestId || '-' }) : '')
 const downloadTip = computed(() =>
   metaState.value === 'error' ? t('bar.disabledMeta') : metaState.value === 'loading' ? t('bar.disabledLoading') : t('bar.shortcut', { key })
 )
@@ -25,22 +31,25 @@ const downloadTip = computed(() =>
       <div class="inner">
         <div class="summary" :title="summary">{{ summary }}</div>
         <div class="btns">
-          <span v-if="slow && !narrow" class="slow" role="status">{{ t('bar.slow') }}</span>
+          <span v-if="rateHint && !narrow" class="slow rate">{{ rateHint }}</span>
+          <span v-else-if="slow && !narrow" class="slow" role="status">{{ t('bar.slow') }}</span>
           <el-button v-if="showGuide && !narrow" link type="primary" @click="emit('guide')">{{ t('bar.guide') }}</el-button>
           <el-button class="b" @click="emit('share')">{{ t('bar.share') }}</el-button>
           <el-tooltip :content="downloadTip" placement="top">
             <span class="tipwrap" :tabindex="blocked ? 0 : -1">
-              <el-button class="b" type="primary" :loading="generating" :disabled="blocked" :aria-keyshortcuts="isMac ? 'Meta+Enter' : 'Control+Enter'" @click="emit('download')">
-                {{ generating ? t('bar.generating') : t('bar.download') }}
+              <el-button class="b" type="primary" :loading="generating" :disabled="blocked || cooling" :aria-keyshortcuts="isMac ? 'Meta+Enter' : 'Control+Enter'" @click="emit('download')">
+                {{ generating ? t('bar.generating') : cooling ? retryLabel : t('bar.download') }}
               </el-button>
             </span>
           </el-tooltip>
         </div>
       </div>
-      <div v-if="narrow && (slow || showGuide)" class="sub">
-        <span v-if="slow" role="status">{{ t('bar.slow') }}</span>
+      <div v-if="narrow && (rateHint || slow || showGuide)" class="sub">
+        <span v-if="rateHint" class="rate">{{ rateHint }}</span>
+        <span v-else-if="slow" role="status">{{ t('bar.slow') }}</span>
         <el-button v-else link type="primary" @click="emit('guide')">{{ t('bar.guide') }}</el-button>
       </div>
+      <div class="sr-only" aria-live="polite">{{ live }}</div>
     </div>
   </div>
 </template>

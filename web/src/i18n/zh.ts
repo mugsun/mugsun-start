@@ -24,7 +24,8 @@ export default {
     notApplicable: '当前生成范围不适用此模块。',
     loadError: '模块列表加载失败，请检查网络后重试。', retry: '重试'
   },
-  preview: { unsupported: '请求包含一期不支持的选项，请刷新页面。', invalid: '项目信息有误，修正后自动更新预览', error: '预览加载失败，请稍后重试。', requestId: '错误编号：{id}', fromModule: '来自模块：{m}', truncated: '文件较多，部分目录只显示数量。', stale: '预览更新失败，当前显示的是上一次的结果。', title: '目录结构', files: '共 {n} 个文件', empty: '暂无可预览的文件', updated: '目录已更新，共 {n} 个文件', retryIn: '重试（{s} 秒）', canRetry: '可以重试', rateLimitedReady: '请求过于频繁，现在可以重试' },
+  cooldown: { retryIn: '重试（{s} 秒）', canRetry: '可以重试', ready: '请求过于频繁，现在可以重试' },
+  preview: { unsupported: '请求包含一期不支持的选项，请刷新页面。', invalid: '项目信息有误，修正后自动更新预览', error: '预览加载失败，请稍后重试。', requestId: '错误编号：{id}', fromModule: '来自模块：{m}', truncated: '文件较多，部分目录只显示数量。', stale: '预览更新失败，当前显示的是上一次的结果。', title: '目录结构', files: '共 {n} 个文件', empty: '暂无可预览的文件', updated: '目录已更新，共 {n} 个文件' },
   bar: {
     summary: '{scope} · 已选 {n} 个可选模块 · {pkg}',
     share: '复制分享链接', shared: '分享链接已复制', download: '下载 ZIP', generating: '正在生成…',

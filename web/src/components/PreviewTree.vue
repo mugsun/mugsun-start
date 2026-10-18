@@ -3,9 +3,10 @@ import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useDebounceFn, useMediaQuery } from '@vueuse/core'
 import { Folder, FolderOpened, Document, WarningFilled } from '@element-plus/icons-vue'
-import { form, metaState, preview, previewState, previewError, loadPreview, optional, previewCooldownUntil } from '@/lib/store'
+import { form, metaState, preview, previewState, previewError, loadPreview, optional, previewCooldown } from '@/lib/store'
 import { loc } from '@/lib/l10n'
 import { formDetails } from '@/lib/fieldErrors'
+import { useCooldownView } from '@/lib/cooldown'
 import type { PreviewNode } from '@/api'
 
 const { t, locale } = useI18n()
@@ -51,27 +52,10 @@ watch(waiting, (w) => {
   clearTimeout(skTimer); showSkeleton.value = false
   if (w) skTimer = setTimeout(() => (showSkeleton.value = true), 200)
 }, { immediate: true })
-/**
- * 429：文案里的秒数取收到 429 时的 Retry-After，之后不变；只有按钮读秒（按钮不在 live region 里）。
- * 屏幕阅读器：收到 429 时播报一次文案，冷却结束时播报一次「可以重试」，倒计时不播报。
- */
-const now = ref(Date.now())
-let tick: ReturnType<typeof setInterval> | undefined
-watch(previewCooldownUntil, (u) => {
-  clearInterval(tick); now.value = Date.now()
-  if (u <= now.value) return
-  live.value = rateText.value
-  tick = setInterval(() => {
-    now.value = Date.now()
-    if (now.value >= u) { clearInterval(tick); live.value = t('preview.canRetry') }
-  }, 250)
-})
-const retryIn = computed(() => Math.max(0, Math.ceil((previewCooldownUntil.value - now.value) / 1000)))
-const limited = computed(() => previewError.value?.code === 'RATE_LIMITED')
-/** 冷却中：N 取收到 429 时的值不变；冷却结束：切换成「现在可以重试」（面板文案不在 live region 里，切换不播报） */
-const rateText = computed(() => retryIn.value <= 0 ? t('preview.rateLimitedReady')
-  : previewError.value?.retryAfter !== undefined ? t('bar.rateLimited', { s: previewError.value.retryAfter }) : t('bar.rateLimitedNoWait'))
-onBeforeUnmount(() => { clearTimeout(hlTimer); clearTimeout(skTimer); clearInterval(tick) })
+/** 429：冷却逻辑与文案见 lib/cooldown.ts（与底栏下载共用） */
+const { limited, text: rateText, button: retryLabel } = useCooldownView(previewCooldown, previewError, live, t)
+const retryIn = previewCooldown.remaining
+onBeforeUnmount(() => { clearTimeout(hlTimer); clearTimeout(skTimer) })
 </script>
 
 <template>
@@ -88,7 +72,7 @@ onBeforeUnmount(() => { clearTimeout(hlTimer); clearTimeout(skTimer); clearInter
         <el-icon :size="28" class="err-icon" aria-hidden="true"><WarningFilled /></el-icon>
         <span>{{ limited ? rateText : previewError?.code === 'INVALID_PARAMETER' ? (formDetails(previewError.details).length ? t('preview.invalid') : t('bar.invalidOther', { id: previewError.requestId || '-' })) : previewError?.code === 'UNSUPPORTED_OPTION' ? t('preview.unsupported') : t('preview.error') }}</span>
         <span v-if="previewError?.requestId && !(previewError.code === 'INVALID_PARAMETER' && !formDetails(previewError.details).length)" class="rid">{{ t('preview.requestId', { id: previewError.requestId }) }}</span>
-        <el-button size="small" :disabled="retryIn > 0" @click="loadPreview()">{{ retryIn > 0 ? t('preview.retryIn', { s: retryIn }) : t('modules.retry') }}</el-button>
+        <el-button size="small" :disabled="retryIn > 0" @click="loadPreview()">{{ retryIn > 0 ? retryLabel : t('modules.retry') }}</el-button>
       </div>
       <el-empty v-else-if="!tree.length" :description="t('preview.empty')" :image-size="64" />
       <el-tree
