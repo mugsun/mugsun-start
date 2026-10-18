@@ -45,7 +45,7 @@ class MetadataClientTests {
 	void types() throws Exception {
 		JsonNode type = metadata().path("type");
 		assertThat(type.path("default").asText()).isEqualTo("mugsun-fullstack");
-		assertThat(ids(type.path("values"))).containsExactly("maven-project", "mugsun-fullstack");
+		assertThat(ids(type.path("values"))).containsExactly("mugsun-backend", "mugsun-fullstack");
 	}
 
 	@Test
@@ -54,9 +54,9 @@ class MetadataClientTests {
 		JsonNode groups = metadata().path("dependencies").path("values");
 		assertThat(groups).hasSize(2);
 		assertThat(groups.get(0).path("name").asText()).isEqualTo("常驻模块");
-		assertThat(ids(groups.get(0).path("values"))).contains("mugsun-system", "mugsun-workflow", "mugsun-lowcode");
+		assertThat(ids(groups.get(0).path("values"))).contains("core-system", "core-workflow", "core-lowcode");
 		assertThat(groups.get(1).path("name").asText()).isEqualTo("可选模块");
-		assertThat(ids(groups.get(1).path("values"))).containsExactly("mugsun-gis", "mugsun-track", "mugsun-ai");
+		assertThat(ids(groups.get(1).path("values"))).containsExactly("gis", "track", "ai");
 	}
 
 	@Test
@@ -75,7 +75,7 @@ class MetadataClientTests {
 	@Test
 	@DisplayName("/starter.zip：默认参数可生成 zip（S4 前为 Initializr 默认骨架）")
 	void starterZip() throws Exception {
-		MvcResult result = mvc.perform(get("/starter.zip").param("type", "maven-project"))
+		MvcResult result = mvc.perform(get("/starter.zip").param("type", "mugsun-backend"))
 			.andExpect(status().isOk())
 			.andExpect(header().string("Content-Type", "application/zip"))
 			.andExpect(header().string("Content-Disposition", "attachment; filename=\"demo.zip\""))

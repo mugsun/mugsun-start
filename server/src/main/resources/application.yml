@@ -24,6 +24,7 @@ management:
 # Spring Initializr 元数据（标准 /metadata/client 与 /starter.zip 使用）
 # 注意：依赖坐标指向 com.mugsun:mugsun-boot-*，这些构件尚未发布到 Maven Central（D1 未决），
 #       S4 之前生成的 zip 只是 Initializr 默认工程骨架，不能直接运行。
+# id 与下方 mugsun.start.* 必须一一对应，启动时校验（MetadataConsistency）。
 # ---------------------------------------------------------------------------
 initializr:
   group-id:
@@ -40,7 +41,7 @@ initializr:
     value: 0.0.1-SNAPSHOT
   types:
     - name: 仅后端
-      id: maven-project
+      id: mugsun-backend
       description: mugsun-boot 后端工程（Spring Boot 3.5、JDK 21）
       tags:
         build: maven
@@ -77,59 +78,216 @@ initializr:
       name: 3.5.13
       default: true
   dependencies:
-    # values[0]：常驻模块（一期不可去掉；生成时总会带上 mugsun-boot-core）
+    # values[0]：常驻模块（一期不可去掉；按展示顺序；请求中传了会被忽略）
+    # initializr 不支持组级坐标，每项单独写；S3 起常驻项在生成请求中被忽略，坐标仅作展示
     - name: 常驻模块
-      groupId: com.mugsun
-      artifactId: mugsun-boot-core
-      starter: false
       content:
-        - id: mugsun-system
+        - id: core-system
           name: 系统管理与多租户
+          groupId: com.mugsun
+          artifactId: mugsun-boot-core
+          starter: false
           description: 用户、角色、菜单、部门、岗位、多租户、字典与参数
-        - id: mugsun-security
+        - id: core-security
           name: 认证与安全
+          groupId: com.mugsun
+          artifactId: mugsun-boot-core
+          starter: false
           description: 登录、验证码、双因子、密码策略、国密、XSS 与脱敏
-        - id: mugsun-audit
+        - id: core-audit
           name: 日志与审计
+          groupId: com.mugsun
+          artifactId: mugsun-boot-core
+          starter: false
           description: 操作日志防篡改、登录日志、访问日志留存
-        - id: mugsun-file-msg
+        - id: core-file-msg
           name: 文件与消息
+          groupId: com.mugsun
+          artifactId: mugsun-boot-core
+          starter: false
           description: 文件与对象存储、短信、邮件、通知与站内信
-        - id: mugsun-workflow
+        - id: core-workflow
           name: 工作流
+          groupId: com.mugsun
+          artifactId: mugsun-boot-core
+          starter: false
           description: 基于 warm-flow 的流程设计、审批与待办
-        - id: mugsun-lowcode
+        - id: core-lowcode
           name: 低代码与代码生成
+          groupId: com.mugsun
+          artifactId: mugsun-boot-core
+          starter: false
           description: 代码生成、在线表单、表单设计器
-        - id: mugsun-open
+        - id: core-open
           name: 开放平台与社交登录
+          groupId: com.mugsun
+          artifactId: mugsun-boot-core
+          starter: false
           description: OAuth2 客户端、API Key、调用日志、第三方登录
-        - id: mugsun-ops
+        - id: core-ops
           name: 定时任务与监控
+          groupId: com.mugsun
+          artifactId: mugsun-boot-core
+          starter: false
           description: PowerJob 定时任务、健康检查与指标、在线用户
     # values[1]：可选模块
     - name: 可选模块
-      groupId: com.mugsun
-      starter: false
       content:
-        - id: mugsun-gis
+        - id: gis
           name: GIS
+          groupId: com.mugsun
           artifactId: mugsun-boot-gis
+          starter: false
           description: 地图、图层、地理围栏
           links:
             - rel: reference
               href: https://docs.mugsun.com/boot/
-        - id: mugsun-track
+        - id: track
           name: 埋点
+          groupId: com.mugsun
           artifactId: mugsun-boot-track
+          starter: false
           description: 浏览器埋点 SDK 与分析看板
           links:
             - rel: reference
               href: https://docs.mugsun.com/track/
-        - id: mugsun-ai
+        - id: ai
           name: AI
+          groupId: com.mugsun
           artifactId: mugsun-boot-ai
+          starter: false
           description: 模型接入、对话、知识库
           links:
             - rel: reference
               href: https://docs.mugsun.com/boot/
+
+# ---------------------------------------------------------------------------
+# UI metadata（GET /api/v1/metadata，契约见 start-mugsun-slices §4.1）中 initializr 没有的部分
+# ---------------------------------------------------------------------------
+mugsun:
+  start:
+    version: 2026.10.1
+    templates:
+      boot: 0.1.x(tag)
+      pc: 0.x(tag)
+    types:
+      "[mugsun-backend]":
+        name: { zh: 仅后端, en: Backend only }
+        description: { zh: "mugsun-boot，Spring Boot 3.5、JDK 21。", en: "mugsun-boot, Spring Boot 3.5, JDK 21." }
+      "[mugsun-fullstack]":
+        name: { zh: 前后端, en: Full stack }
+        description: { zh: "后端 + mugsun-pc 管理台（Vue 3）。", en: "Backend plus the mugsun-pc admin console (Vue 3)." }
+    fields:
+      "[groupId]":
+        pattern: '^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*$'
+        required: true
+      "[artifactId]":
+        pattern: '^[a-z][a-z0-9-]*$'
+        max-length: 50
+        required: true
+      "[name]":
+        max-length: 50
+        required: true
+        follows: artifactId
+      "[packageName]":
+        pattern: '^[a-z_][a-z0-9_]*(\.[a-z_][a-z0-9_]*)*$'
+        follows: groupId+artifactId
+      "[description]":
+        max-length: 200
+        default-text: { zh: 基于 mugsun 的管理系统, en: An admin system built on mugsun }
+    database:
+      default: postgresql
+      values:
+        - { id: postgresql, name: PostgreSQL }
+      note: { zh: 一期仅支持 PostgreSQL, en: Phase 1 supports PostgreSQL only }
+    # 常驻模块，按展示顺序；icon 为固定枚举（MetadataConsistency.ICONS）
+    always-on:
+      - id: core-system
+        icon: system
+        name: { zh: 系统管理与多租户, en: System administration and multi-tenancy }
+        description: { zh: "用户、角色、菜单、部门、岗位、多租户、字典与参数。", en: "Users, roles, menus, departments, positions, multi-tenancy, dictionaries and parameters." }
+      - id: core-security
+        icon: security
+        name: { zh: 认证与安全, en: Authentication and security }
+        description: { zh: "登录、验证码、双因子、密码策略、国密与数据脱敏。", en: "Sign-in, captcha, two-factor authentication, password policies, SM cryptography and data masking." }
+      - id: core-audit
+        icon: audit
+        name: { zh: 日志与审计, en: Logging and auditing }
+        description: { zh: "操作日志防篡改、登录日志与访问日志留存。", en: "Tamper-evident operation logs, sign-in logs and access log retention." }
+      - id: core-file-msg
+        icon: file
+        name: { zh: 文件与消息, en: Files and messaging }
+        description: { zh: "文件与对象存储、短信、邮件、通知与站内信。", en: "File and object storage, SMS, email, notices and in-app messages." }
+      - id: core-workflow
+        icon: flow
+        name: { zh: 工作流, en: Workflow }
+        description: { zh: "基于 warm-flow 的流程设计、审批与待办。", en: "Process design, approval and to-do lists based on warm-flow." }
+        removable-in: phase-2
+      - id: core-lowcode
+        icon: lowcode
+        name: { zh: 低代码与代码生成, en: Low-code and code generation }
+        description: { zh: "代码生成、在线表单与表单设计器。", en: "Code generation, online forms and a form designer." }
+        removable-in: phase-2
+      - id: core-open
+        icon: open
+        name: { zh: 开放平台与社交登录, en: Open platform and social sign-in }
+        description: { zh: "OAuth2 客户端、API Key、调用日志与第三方登录。", en: "OAuth2 clients, API keys, call logs and third-party sign-in." }
+        removable-in: phase-2
+      - id: core-ops
+        icon: ops
+        name: { zh: 定时任务与监控, en: Scheduled jobs and monitoring }
+        description: { zh: "PowerJob 定时任务、健康检查与指标、在线用户。", en: "PowerJob scheduled jobs, health checks and metrics, and online users." }
+        removable-in: phase-3
+    # 可选模块；仅后端时三项都可选（§2(b)）；npm-remove 与 pc 裁剪方案一致
+    optional:
+      - id: gis
+        group: geo
+        icon: map
+        name: { zh: GIS, en: GIS }
+        description: { zh: "地图、图层、地理围栏。", en: "Maps, layers and geofences." }
+        default: false
+        applies-to: [mugsun-backend, mugsun-fullstack]
+        notes:
+          backend-only: { zh: "仅后端时只含 REST 接口。", en: "Backend only includes the REST API." }
+        pc:
+          dir: modules/gis
+          npm-remove: [cesium, ol, gcoord]
+      - id: track
+        group: analytics
+        icon: track
+        name: { zh: 埋点, en: Analytics }
+        description: { zh: "浏览器埋点 SDK 与分析看板。", en: "A browser tracking SDK and an analytics dashboard." }
+        default: false
+        applies-to: [mugsun-backend, mugsun-fullstack]
+        notes:
+          backend-only: { zh: "仅后端时只含采集与查询接口，看板需要前后端或自建前端。", en: "Backend only includes the collection and query APIs. The dashboard requires the full stack or your own frontend." }
+        pc:
+          dir: modules/track
+          npm-remove: ["@mugsun/track-web", rrweb-player, source-map-js]
+      - id: ai
+        group: ai
+        icon: ai
+        name: { zh: AI, en: AI }
+        description: { zh: "模型接入、对话、知识库。", en: "Model integration, chat and knowledge bases." }
+        default: false
+        applies-to: [mugsun-backend, mugsun-fullstack]
+        notes:
+          backend-only: { zh: "仅后端时只含 REST 接口。", en: "Backend only includes the REST API." }
+        pc:
+          dir: modules/ai
+          npm-remove: [vue-element-plus-x, "@vue-flow/core"]
+    post-generate:
+      requirements:
+        "[mugsun-backend]": [JDK 21, Maven 3.9+, Docker]
+        "[mugsun-fullstack]": [JDK 21, Maven 3.9+, Docker, Node.js 22.13+, pnpm 11+]
+      commands:
+        "[mugsun-backend]":
+          - "unzip {artifactId}.zip && cd {artifactId}"
+          - "docker compose up -d"
+          - "./mvnw spring-boot:run"
+        "[mugsun-fullstack]":
+          - "unzip {artifactId}.zip && cd {artifactId}"
+          - "docker compose up -d"
+          - "./mvnw spring-boot:run"
+          - "cd {artifactId}-pc && pnpm install && pnpm dev"
+      docs: https://docs.mugsun.com/guide/quick-start
