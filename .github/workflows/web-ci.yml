@@ -19,21 +19,32 @@ jobs:
         working-directory: web
     steps:
       - uses: actions/checkout@v4
+      - name: Skip when web/ is absent
+        if: hashFiles('web/pnpm-lock.yaml') == ''
+        working-directory: .
+        run: echo "web/ not present on this ref; skipping web checks."
       - uses: pnpm/action-setup@v4
+        if: hashFiles('web/pnpm-lock.yaml') != ''
         with:
           version: 11.9.0
       - uses: actions/setup-node@v4
+        if: hashFiles('web/pnpm-lock.yaml') != ''
         with:
           node-version: '22'
           cache: pnpm
           cache-dependency-path: web/pnpm-lock.yaml
       - name: Install
+        if: hashFiles('web/pnpm-lock.yaml') != ''
         run: pnpm install --frozen-lockfile
       - name: Typecheck
+        if: hashFiles('web/pnpm-lock.yaml') != ''
         run: pnpm typecheck
       - name: Lint
+        if: hashFiles('web/pnpm-lock.yaml') != ''
         run: pnpm lint
       - name: Test
+        if: hashFiles('web/pnpm-lock.yaml') != ''
         run: pnpm test
       - name: Build
+        if: hashFiles('web/pnpm-lock.yaml') != ''
         run: pnpm build
