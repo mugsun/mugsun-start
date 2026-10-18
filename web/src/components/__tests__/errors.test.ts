@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { mount, flushPromises } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import ElementPlus from 'element-plus'
 import { i18n, setLocale } from '@/i18n'
@@ -71,5 +71,53 @@ describe('429 messages', () => {
     setLocale('en')
     expect(t('bar.rateLimited', { s: 30 })).toBe('Too many requests. Try again in 30 seconds.')
     expect(t('bar.rateLimitedNoWait')).toBe('Too many requests. Try again later.')
+  })
+})
+
+describe('ModuleList collapse (<1024px)', () => {
+  const setWidth = (narrow: boolean) => {
+    vi.stubGlobal('matchMedia', (q: string) => ({ matches: narrow && q.includes('max-width: 1023px'), media: q, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}, onchange: null, dispatchEvent: () => false }))
+    window.matchMedia = globalThis.matchMedia
+  }
+  afterEach(() => vi.unstubAllGlobals())
+  const ready = (n?: number) => {
+    const m = buildMockMetadata()
+    if (n !== undefined) m.modules.alwaysOn = m.modules.alwaysOn.slice(0, n)
+    s.metadata.value = m; s.metaState.value = 'ready'
+  }
+  it('optional modules come before always-on modules', async () => {
+    setWidth(false); ready()
+    const w = mount(ModuleList, opts); await nextTick()
+    const titles = w.findAll('h3').map((h) => h.text())
+    expect(titles).toEqual(['可选模块', '常驻模块'])
+  })
+  it('wide: all 8 shown, no toggle', async () => {
+    setWidth(false); ready()
+    const w = mount(ModuleList, opts); await nextTick()
+    expect(w.findAll('#always-on-list li')).toHaveLength(8)
+    expect(w.find('.more').exists()).toBe(false)
+  })
+  it('narrow: 4 shown, toggle with aria, count from metadata', async () => {
+    setWidth(true); ready(6)
+    const w = mount(ModuleList, opts); await flushPromises()
+    expect(w.findAll('#always-on-list li')).toHaveLength(4)
+    const b = w.find('.more')
+    expect(b.text()).toBe('展开全部（共 6 个）')
+    expect(b.attributes('aria-expanded')).toBe('false')
+    expect(b.attributes('aria-controls')).toBe('always-on-list')
+    await b.trigger('click'); await flushPromises()
+    expect(w.findAll('#always-on-list li')).toHaveLength(6)
+    expect(w.find('.more').text()).toBe('收起')
+    expect(w.find('.more').attributes('aria-expanded')).toBe('true')
+    setLocale('en'); await nextTick()
+    expect(w.find('.more').text()).toBe('Show less')
+    await w.find('.more').trigger('click'); await flushPromises()
+    expect(w.find('.more').text()).toBe('Show all (6)')
+  })
+  it('narrow with ≤ 4 modules: no toggle', async () => {
+    setWidth(true); ready(4)
+    const w = mount(ModuleList, opts); await flushPromises()
+    expect(w.findAll('#always-on-list li')).toHaveLength(4)
+    expect(w.find('.more').exists()).toBe(false)
   })
 })

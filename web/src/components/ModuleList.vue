@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { ref, watch, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, nextTick, onBeforeUnmount } from 'vue'
+import { useMediaQuery } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
 import { WarningFilled, TopRight } from '@element-plus/icons-vue'
 import { form, alwaysOn, optional, metaState, BACKEND } from '@/lib/store'
 import { loc } from '@/lib/l10n'
 import type { OptionalModule } from '@/api'
+import { canCollapse, visibleAlwaysOn } from '@/lib/collapse'
 
 const emit = defineEmits<{ retry: [] }>()
 const { t, locale } = useI18n()
@@ -12,6 +14,25 @@ import { moduleIcon as icon } from './moduleIcons'
 const L = (v: Parameters<typeof loc>[0]) => loc(v, locale.value)
 const disabledFor = (d: OptionalModule) => !d.appliesTo.includes(form.type)
 const backendNote = (d: OptionalModule) => (form.type === BACKEND ? L(d.notes?.backendOnly) : '')
+
+/** <1024px 时常驻模块默认只显示前 4 个，可展开 */
+const compact = useMediaQuery('(max-width: 1023px)')
+const expanded = ref(false)
+const collapsible = computed(() => canCollapse(alwaysOn.value.length, compact.value))
+const shownAlwaysOn = computed(() => visibleAlwaysOn(alwaysOn.value, compact.value, expanded.value))
+const toggleEl = ref<{ $el: HTMLElement } | null>(null)
+/** 展开：新条目插在开关上方、第 4 项下方，上方内容不动；收起：以开关为锚点补偿滚动，开关停在原位 */
+async function toggle() {
+  const el = toggleEl.value?.$el
+  const before = el?.getBoundingClientRect().top
+  const collapsing = expanded.value
+  expanded.value = !expanded.value
+  await nextTick()
+  if (collapsing && el && before !== undefined) {
+    const delta = el.getBoundingClientRect().top - before
+    if (delta) window.scrollBy(0, delta)
+  }
+}
 
 /** 骨架屏 200ms 后才出现，避免闪烁 */
 const showSkeleton = ref(false)
@@ -38,19 +59,6 @@ onBeforeUnmount(() => clearTimeout(timer))
     </div>
 
     <template v-else>
-      <section class="group" aria-labelledby="mg-0">
-        <h3 id="mg-0" class="gt">{{ t('modules.alwaysOn') }}</h3>
-        <ul class="req">
-          <li v-for="d in alwaysOn" :key="d.id">
-            <el-icon class="ri" :size="20" aria-hidden="true"><component :is="icon(d.icon)" /></el-icon>
-            <div class="rt">
-              <div class="rn">{{ L(d.name) }}</div>
-              <div class="rd" :title="L(d.description)">{{ L(d.description) }}</div>
-            </div>
-            <el-tag type="info" effect="plain" round class="inc">{{ t('modules.included') }}</el-tag>
-          </li>
-        </ul>
-      </section>
       <section class="group" aria-labelledby="mg-1">
         <h3 id="mg-1" class="gt">{{ t('modules.optional') }}</h3>
         <el-checkbox-group v-model="form.dependencies" class="opt">
@@ -71,6 +79,25 @@ onBeforeUnmount(() => clearTimeout(timer))
           </el-checkbox>
         </el-checkbox-group>
       </section>
+      <section class="group" aria-labelledby="mg-0">
+        <h3 id="mg-0" class="gt">{{ t('modules.alwaysOn') }}</h3>
+        <ul id="always-on-list" class="req">
+          <li v-for="d in shownAlwaysOn" :key="d.id">
+            <el-icon class="ri" :size="20" aria-hidden="true"><component :is="icon(d.icon)" /></el-icon>
+            <div class="rt">
+              <div class="rn">{{ L(d.name) }}</div>
+              <div class="rd" :title="L(d.description)">{{ L(d.description) }}</div>
+            </div>
+            <el-tag type="info" effect="plain" round class="inc">{{ t('modules.included') }}</el-tag>
+          </li>
+        </ul>
+        <el-button
+          v-if="collapsible" ref="toggleEl" link type="primary" class="more"
+          :aria-expanded="expanded" aria-controls="always-on-list" @click="toggle"
+        >
+          {{ expanded ? t('modules.showLess') : t('modules.showAll', { n: alwaysOn.length }) }}
+        </el-button>
+      </section>
     </template>
   </div>
 </template>
@@ -90,6 +117,7 @@ onBeforeUnmount(() => clearTimeout(timer))
 .rn { font-weight: 600; color: var(--el-text-color-primary); }
 .rd { font-size: 13px; color: var(--el-text-color-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .inc { flex: none; }
+.more { margin-top: 8px; padding: 4px 0; height: auto; }
 .opt { display: flex; flex-direction: column; gap: 12px; }
 .mod-card.el-checkbox { position: relative; width: 100%; box-sizing: border-box; height: auto; margin: 0; padding: 16px 16px 36px; border: 1px solid var(--el-border-color); border-radius: 12px; background: var(--card-bg); align-items: flex-start; white-space: normal; }
 .mod-card.el-checkbox:hover { border-color: var(--el-border-color-darker); }

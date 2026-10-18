@@ -62,8 +62,9 @@ const downloadTip = computed(() =>
   .inner { flex-direction: column; align-items: stretch; height: auto; padding: 8px var(--gutter) 10px; gap: 6px; }
   .summary { font-size: 12px; }
   .btns { gap: 8px; }
-  .btns > * { flex: 1; }
-  .b, .tipwrap, .tipwrap .el-button { width: 100%; height: 44px; }
+  /* 两个按钮等宽 */
+  .btns > * { flex: 1 1 0; min-width: 0; }
+  .b, .tipwrap, .tipwrap .el-button { width: 100%; min-width: 0; height: 44px; }
   .sub { display: block; text-align: center; font-size: 12px; color: var(--el-text-color-secondary); padding-bottom: 6px; }
 }
 </style>

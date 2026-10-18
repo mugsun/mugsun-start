@@ -16,6 +16,9 @@ describe('theme tokens', () => {
   it('loading button keeps solid fill', () => {
     expect(css).toMatch(/\.el-button\.is-loading::before\s*\{[^}]*display:\s*none/)
   })
+  it('primary hover is the darker #a84a1c in light theme', () => {
+    expect(css).toMatch(/html:not\(\.dark\) \.el-button--primary \{[^}]*--el-button-hover-bg-color: #a84a1c;/)
+  })
   it('checkbox inner focus style removed in module cards', () => {
     expect(css).toMatch(/\.mod-card \.el-checkbox__input\.is-focus/)
   })

@@ -100,3 +100,9 @@ html.dark .el-checkbox__input.is-checked + .el-checkbox__label, html.dark .el-ra
 .mod-card .el-checkbox__input.is-focus:not(.is-checked) .el-checkbox__inner { border-color: var(--el-border-color); box-shadow: none; outline: none; }
 .mod-card .el-checkbox__input.is-focus .el-checkbox__inner { box-shadow: none; outline: none; }
 .mod-card .el-checkbox__original:focus-visible { outline: none; }
+
+/* 主按钮悬停：浅色主题用更深的 #a84a1c，避免悬停时看起来像禁用（暗色主题沿用 primary-light-3） */
+html:not(.dark) .el-button--primary {
+  --el-button-hover-bg-color: #a84a1c;
+  --el-button-hover-border-color: #a84a1c;
+}
