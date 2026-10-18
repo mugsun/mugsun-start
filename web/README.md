@@ -11,7 +11,8 @@ pnpm build
 
 ## 接口
 - 契约：平台后端《start.mugsun.com 切片》§4。`GET /api/v1/metadata`、`POST /api/v1/preview`（JSON）、`POST /starter.zip`（form-urlencoded，含 `baseDir`）。
-- 切换真实后端只需设置 `VITE_API_BASE`（如 `https://start.mugsun.com`）。未设置时 `src/api/mock.ts` 以假 `fetch` 接入同一套 HTTP 层（`src/api/http.ts`），即「前端 mock 数据」。
+- 切换真实后端只需设置 `VITE_API_BASE`（如 `https://start.mugsun.com`；前后端同源部署设 `/`）。开发时未设置则 `src/api/mock.ts` 以假 `fetch` 接入同一套 HTTP 层（`src/api/http.ts`），即「前端 mock 数据」。
+- 生产构建（`pnpm build`）未设 `VITE_API_BASE` 且未显式设 `VITE_USE_MOCK=1` 会在构建期直接报错（`vite.config.ts`），运行期 `src/api/index.ts` 也会抛同样的错误，不再悄悄回落到 mock。要部署 mock 演示版请显式设 `VITE_USE_MOCK=1`。变量说明见 `.env.example`；判定规则在 `src/api/mode.ts`。
 - 超时：metadata/preview 10s，generate 60s；metadata 与 preview 新请求会取消旧请求，只保留最新结果。
 - 错误体 `{code,message,requestId,details}`：`INVALID_PARAMETER` 的 details 映射到表单字段；429 读取 `Retry-After`。
 - 下载文件名取 `Content-Disposition`，并校验 `Content-Type: application/zip`。

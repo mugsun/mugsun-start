@@ -45,6 +45,16 @@ jobs:
       - name: Test
         if: hashFiles('web/pnpm-lock.yaml') != ''
         run: pnpm test
+      # 生产构建必须设 VITE_API_BASE 或显式 VITE_USE_MOCK=1；CI 只做检查（及布局 e2e），用 mock 构建
       - name: Build
         if: hashFiles('web/pnpm-lock.yaml') != ''
+        env:
+          VITE_USE_MOCK: '1'
         run: pnpm build
+      - name: Build guard (no VITE_API_BASE / VITE_USE_MOCK must fail)
+        if: hashFiles('web/pnpm-lock.yaml') != ''
+        run: |
+          if pnpm exec vite build --outDir "$RUNNER_TEMP/guard-dist" > guard.log 2>&1; then
+            echo "::error::production build without VITE_API_BASE should fail"; exit 1
+          fi
+          grep -q 'VITE_API_BASE=/' guard.log && echo "guard ok"
