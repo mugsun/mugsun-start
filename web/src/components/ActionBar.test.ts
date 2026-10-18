@@ -26,6 +26,8 @@ describe('download 429 cooldown in the bar', () => {
     expect(dl(w).attributes('disabled')).toBeDefined()
     expect(w.find('.rate').text()).toBe('请求过于频繁，请在 2 秒后重试（错误编号：r-7）')
     expect(w.find('.rate').attributes('role')).toBeUndefined()
+    expect(w.find('.rate .rid').text()).toBe('（错误编号：r-7）')
+    expect(w.find('.rate').html()).not.toContain('v-html')
     expect(lives(w).map((n) => n.text())).toEqual(['请求过于频繁，请在 2 秒后重试'])
     await vi.advanceTimersByTimeAsync(1000); await nextTick()
     expect(dl(w).text()).toBe('下载 ZIP（1 秒）')
@@ -45,6 +47,7 @@ describe('download 429 cooldown in the bar', () => {
     expect(dl(w).text()).toBe('Download ZIP (2s)')
     await vi.advanceTimersByTimeAsync(2000); await nextTick()
     expect(w.find('.rate').text()).toBe('Too many requests. You can retry now. (Error ID: r-8)')
+    expect(w.find('.rate .rid').text()).toBe('(Error ID: r-8)')
   })
   it('preview cooldown leaves the download button alone', async () => {
     const w = bar()

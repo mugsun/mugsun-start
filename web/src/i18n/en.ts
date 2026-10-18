@@ -37,6 +37,8 @@ const en: typeof zh = {
     invalid: '{n} fields need to be corrected',
     rateLimited: 'Too many requests. Try again in {s} seconds.',
     serverMessage: '{msg} (Error ID: {id})',
+    idSep: ' ',
+    idPart: '(Error ID: {id})',
     unknownDependency: 'The request contains a module that does not exist. Refresh the page and try again. (Error ID: {id})',
     invalidOther: 'Invalid request. Check the project details and try again (Error ID: {id})',
     unsupported: 'The request contains an option that is not supported yet. Refresh the page and try again. (Error ID: {id})',

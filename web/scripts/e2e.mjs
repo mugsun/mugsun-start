@@ -111,7 +111,7 @@ async function rateLayout(width, lang) {
       const span = dl.querySelector('span')
       return {
         rate: box(r), share: box(share), dl: box(dl), summary: box(document.querySelector('.bar .summary')),
-        text: r.textContent, clipped: cs.textOverflow === 'ellipsis' || r.scrollWidth > r.clientWidth + 1 || r.scrollHeight > r.clientHeight + 1,
+        text: r.textContent, ridLines: r.querySelector('.rid')?.getClientRects().length ?? 0, ridOverflow: (() => { const q = r.querySelector('.rid'); return q ? q.getBoundingClientRect().right > r.getBoundingClientRect().right + 0.5 : true })(), clipped: cs.textOverflow === 'ellipsis' || r.scrollWidth > r.clientWidth + 1 || r.scrollHeight > r.clientHeight + 1,
         dlOverflow: span ? span.scrollWidth > dl.clientWidth : false, dlText: dl.textContent.trim()
       }
     })
@@ -123,6 +123,7 @@ try {
   check(!n.clipped, '390 download-429: hint not truncated')
   check(/（错误编号：01MOCK[0-9A-Z]{10}）$/.test(n.text), `390 download-429: full error ID visible (${n.text})`)
   check(n.rate.right <= 390 && n.rate.left >= 0, '390 download-429: hint within viewport')
+  check(n.ridLines === 1 && !n.ridOverflow, `390 download-429: error ID segment on one line (${n.ridLines} rect)`)
   check(Math.abs(n.share.width - n.dl.width) <= 1 && Math.abs(n.dl.width - 175) <= 1, `390 download-429: buttons equal width (${n.share.width} / ${n.dl.width})`)
   check(!n.dlOverflow, `390 download-429: button text fits (${n.dlText})`)
   const e = await rateLayout(1440, 'en')
@@ -130,6 +131,7 @@ try {
   check(!overlap(e.rate, e.share) && !overlap(e.rate, e.dl) && !overlap(e.rate, e.summary), '1440 en download-429: hint does not overlap summary/buttons')
   check(!e.clipped && /\(Error ID: 01MOCK[0-9A-Z]{10}\)$/.test(e.text), `1440 en download-429: full text (${e.text})`)
   check(e.share.width < 200 && e.share.height < 44, `1440 en download-429: share keeps size (${e.share.width.toFixed(0)}x${e.share.height})`)
+  check(e.ridLines === 1 && !e.ridOverflow, `1440 en download-429: error ID segment on one line (${e.ridLines} rect)`)
   check(!e.dlOverflow, `1440 en download-429: button text fits (${e.dlText})`)
 } catch (err) { failed++; console.log('FAIL rate layout:', err.message) }
 await browser.close()

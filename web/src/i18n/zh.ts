@@ -35,6 +35,9 @@ export default {
     invalid: '有 {n} 项信息需要修改',
     rateLimited: '请求过于频繁，请在 {s} 秒后重试',
     serverMessage: '{msg}（错误编号：{id}）',
+    /** 拆成两段渲染：文案 + sep，编号段整体不断行 */
+    idSep: '',
+    idPart: '（错误编号：{id}）',
     unknownDependency: '包含不存在的模块，请刷新页面后重试（错误编号：{id}）',
     invalidOther: '请求参数有误，请检查项目信息后重试（错误编号：{id}）',
     unsupported: '请求包含一期不支持的选项，请刷新页面后重试（错误编号：{id}）',
