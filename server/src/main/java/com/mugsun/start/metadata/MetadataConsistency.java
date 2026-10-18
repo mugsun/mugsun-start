@@ -16,6 +16,8 @@ import io.spring.initializr.metadata.Type;
 /**
  * 校验 {@code mugsun.start.*} 与 {@code initializr.*} 一致：常驻模块对应 dependencies 第 1 组，
  * 可选模块对应第 2 组，类型、appliesTo、requires/conflicts、生成后说明的键都必须存在。
+ * 所有下发给前端的文案（类型与模块的 name/description、notes、database.note、字段默认文案）都必须中英文齐全，
+ * 否则拒绝启动，不在运行时回落成单语。
  */
 public final class MetadataConsistency {
 
@@ -33,10 +35,14 @@ public final class MetadataConsistency {
 		Set<String> typeIds = new LinkedHashSet<>(metadata.getTypes().getContent().stream().map(Type::getId).toList());
 		sameIds(problems, "mugsun.start.types", props.types().keySet(), typeIds);
 		props.types().forEach((id, text) -> {
-			if (text == null || text.name() == null || !text.name().complete()) {
-				problems.add("mugsun.start.types." + id + ".name 缺少中文或英文");
-			}
+			required(problems, "mugsun.start.types." + id + ".name", (text != null) ? text.name() : null);
+			required(problems, "mugsun.start.types." + id + ".description", (text != null) ? text.description() : null);
 		});
+		props.fields().forEach((id, rule) -> optional(problems, "mugsun.start.fields." + id + ".default-text",
+				(rule != null) ? rule.defaultText() : null));
+		if (props.database() != null) {
+			optional(problems, "mugsun.start.database.note", props.database().note());
+		}
 
 		List<DependencyGroup> groups = metadata.getDependencies().getContent();
 		if (groups.size() != 2) {
@@ -62,17 +68,18 @@ public final class MetadataConsistency {
 			if (!seen.add(m.id())) {
 				problems.add("模块 id 重复：" + m.id());
 			}
-			if (m.name() == null || !m.name().complete()) {
-				problems.add("常驻模块 " + m.id() + " 的 name 缺少中文或英文");
-			}
+			required(problems, "常驻模块 " + m.id() + " 的 name", m.name());
+			required(problems, "常驻模块 " + m.id() + " 的 description", m.description());
 		});
 		Set<String> optionalIds = new HashSet<>(props.optional().stream().map(OptionalModule::id).toList());
 		for (OptionalModule m : props.optional()) {
 			if (!seen.add(m.id())) {
 				problems.add("模块 id 重复：" + m.id());
 			}
-			if (m.name() == null || !m.name().complete()) {
-				problems.add("可选模块 " + m.id() + " 的 name 缺少中文或英文");
+			required(problems, "可选模块 " + m.id() + " 的 name", m.name());
+			required(problems, "可选模块 " + m.id() + " 的 description", m.description());
+			if (m.notes() != null) {
+				optional(problems, "可选模块 " + m.id() + " 的 notes.backend-only", m.notes().backendOnly());
 			}
 			if (m.appliesTo().isEmpty()) {
 				problems.add("可选模块 " + m.id() + " 的 applies-to 不能为空");
@@ -97,6 +104,20 @@ public final class MetadataConsistency {
 			problems.add("mugsun.start.database.default 必须是 values 中的一项");
 		}
 		return problems;
+	}
+
+	/** 必填文案：缺失或缺中文/英文都算问题。 */
+	private static void required(List<String> problems, String what, L10n text) {
+		if (text == null || !text.complete()) {
+			problems.add(what + " 缺少中文或英文");
+		}
+	}
+
+	/** 选填文案：可以整项不配，配了就必须中英文都有（不下发 en:null）。 */
+	private static void optional(List<String> problems, String what, L10n text) {
+		if (text != null && !text.complete()) {
+			problems.add(what + " 缺少中文或英文");
+		}
 	}
 
 	private static List<String> concatIcons(MugsunStartProperties props) {

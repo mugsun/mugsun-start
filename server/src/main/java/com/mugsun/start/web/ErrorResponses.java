@@ -23,7 +23,8 @@ import org.springframework.stereotype.Component;
 
 /**
  * 统一错误体 {@code {code, message, requestId, timestamp, details[{field, reason, message}]}}（契约 §4.4）。
- * message 按 {@code Accept-Language} 本地化（zh/en，缺省 zh）。
+ * message 按 {@code Accept-Language} 本地化（zh/en，缺省 zh）。顶层与 details[].message 都是面向用户的书面文案，
+ * 不含错误码、类名、异常文本或堆栈；文案缺失时回落到通用文案，而不是错误码或 reason。
  */
 @Component
 public class ErrorResponses {
@@ -48,7 +49,12 @@ public class ErrorResponses {
 		}
 		else {
 			Object[] messageArgs = (args != null) ? args : new Object[] { joined(problems) };
-			message = this.messages.getMessage("error." + code.name(), messageArgs, code.name(), locale);
+			message = this.messages.getMessage("error." + code.name(), messageArgs, null, locale);
+			if (message == null) {
+				// 文案缺失时绝不回落成错误码：用通用文案（4xx 用「请求参数不正确」，5xx 用「服务暂时出现问题」）
+				message = this.messages.getMessage(code.status().is5xxServerError() ? "error.INTERNAL_ERROR"
+						: "detail.invalid", null, locale);
+			}
 		}
 		Map<String, Object> body = new LinkedHashMap<>();
 		body.put("code", code.name());
@@ -101,7 +107,11 @@ public class ErrorResponses {
 		String generic = "detail." + p.reason();
 		String message = this.messages.getMessage(specific, p.args(), null, locale);
 		if (message == null) {
-			message = this.messages.getMessage(generic, p.args(), p.reason(), locale);
+			message = this.messages.getMessage(generic, p.args(), null, locale);
+		}
+		if (message == null) {
+			// 未知 reason 也不把机器码当文案下发
+			message = this.messages.getMessage("detail.invalid", null, locale);
 		}
 		Map<String, Object> d = new LinkedHashMap<>();
 		d.put("field", p.field());

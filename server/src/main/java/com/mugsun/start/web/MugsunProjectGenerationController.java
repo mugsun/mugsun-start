@@ -46,8 +46,10 @@ public class MugsunProjectGenerationController extends ProjectGenerationControll
 			throws IOException {
 		MugsunRequestException mugsun = (ex instanceof MugsunRequestException m) ? m
 				: new MugsunRequestException(ErrorCode.INVALID_PARAMETER,
-						java.util.List.of(new FieldProblem("request", "invalid", ex.getMessage())));
-		log.info("生成请求被拒绝：{} {}", mugsun.code(), mugsun.problems().stream().map(FieldProblem::field).toList());
+						java.util.List.of(new FieldProblem("request", "invalid")));
+		// initializr 原生异常的文本（可能含类名、内部取值）只进日志，不进响应 message
+		log.info("生成请求被拒绝：{} {}{}", mugsun.code(), mugsun.problems().stream().map(FieldProblem::field).toList(),
+				(mugsun == ex) ? "" : " cause=" + ex.getMessage());
 		this.errors.write(currentRequest(), response, mugsun);
 	}
 
