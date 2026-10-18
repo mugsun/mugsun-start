@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { checkField, derivePackage, isReservedSegment } from './validate'
+import { checkField, derivePackage, isReservedSegment, JAVA_KEYWORDS } from './validate'
 import { FALLBACK_FIELDS as F } from './defaults'
 
 describe('validate by field spec', () => {
@@ -24,11 +24,25 @@ describe('validate by field spec', () => {
 })
 
 describe('package segments: keywords and literals', () => {
-  it.each(['com.class.demo', 'com.int', 'record.x', 'com.true', 'false.app', 'com.example.null'])('%s is rejected', (v) => {
+  it.each(['com.class.demo', 'com.int', 'com._', '_.x', 'com.goto', 'com.const', 'com.strictfp', 'com.true', 'false.app', 'com.example.null'])('%s is rejected', (v) => {
     expect(checkField(v, F.packageName, { javaPackage: true })).toBe('keyword')
   })
   it('literals are reserved, similar words are fine', () => {
     for (const w of ['true', 'false', 'null']) expect(isReservedSegment(w)).toBe(true)
     expect(checkField('com.trueish.nullable', F.packageName, { javaPackage: true })).toBeNull()
+  })
+})
+
+describe('keyword list matches SourceVersion.isKeyword(RELEASE_21)', () => {
+  // JLS 21 §3.9 ReservedKeyword，逐个列出
+  const JLS21 = ['abstract', 'continue', 'for', 'new', 'switch', 'assert', 'default', 'if', 'package', 'synchronized', 'boolean', 'do', 'goto', 'private', 'this', 'break', 'double', 'implements', 'protected', 'throw', 'byte', 'else', 'import', 'public', 'throws', 'case', 'enum', 'instanceof', 'return', 'transient', 'catch', 'extends', 'int', 'short', 'try', 'char', 'final', 'interface', 'static', 'void', 'class', 'finally', 'long', 'strictfp', 'volatile', 'const', 'float', 'native', 'super', 'while', '_']
+  it('exactly the 51 reserved keywords', () => {
+    expect(JLS21).toHaveLength(51)
+    expect([...JAVA_KEYWORDS].sort()).toEqual([...JLS21].sort())
+  })
+  it('contextual keywords are valid segments', () => {
+    for (const p of ['com.record.x', 'com.var', 'com.yield', 'com.sealed', 'com.permits', 'com.module', 'com.when', 'com.non_sealed']) {
+      expect(checkField(p, F.packageName, { javaPackage: true })).toBeNull()
+    }
   })
 })
