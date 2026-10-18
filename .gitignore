@@ -1,0 +1,10 @@
+target/
+.m2repo/
+*.iml
+.idea/
+.vscode/
+.DS_Store
+*.log
+node_modules/
+dist/
+test-results/

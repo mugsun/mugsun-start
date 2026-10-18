@@ -1,0 +1,13 @@
+mugsun-start
+Copyright (c) 2026 北京定旭晨信息科技工作室 (mugsun)
+Licensed under the MIT License (see LICENSE).
+
+This product depends on and redistributes, as Maven dependencies, components of
+Spring Initializr (https://github.com/spring-io/initializr):
+initializr-web, initializr-generator, initializr-generator-spring,
+initializr-metadata and related modules, version 0.23.0.
+Copyright 2012 - present the original author or authors.
+Licensed under the Apache License, Version 2.0
+(https://www.apache.org/licenses/LICENSE-2.0).
+Spring Initializr does not ship a NOTICE file of its own; this attribution is
+provided in accordance with Section 4 of the Apache License, Version 2.0.
