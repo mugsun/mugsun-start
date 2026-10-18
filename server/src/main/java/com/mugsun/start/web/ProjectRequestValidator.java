@@ -92,8 +92,13 @@ public class ProjectRequestValidator {
 		if (blank(request.getVersion())) {
 			request.setVersion(metadata.getVersion().getContent());
 		}
+		applyBaseDirDefault(request);
+	}
+
+	/** baseDir 未传或为空白时取 artifactId（zip 与预览共用，预览在查缓存前调用）。 */
+	static void applyBaseDirDefault(ProjectRequest request) {
 		if (blank(request.getBaseDir())) {
-			request.setBaseDir(request.getArtifactId());
+			request.setBaseDir(blank(request.getArtifactId()) ? null : request.getArtifactId());
 		}
 	}
 

@@ -85,4 +85,16 @@ class PreviewGuardApiTests {
 		assertThat(preview("miss", "").getResponse().getStatus()).isEqualTo(200);
 	}
 
+	@Test
+	@DisplayName("未传或空白 baseDir：首次与命中缓存时 root 都是 artifactId，不会是 null")
+	void rootFallsBackToArtifactIdOnHit() throws Exception {
+		JsonNode first = json(this.mvc.perform(get("/api/v1/preview").param("artifactId", "shop")).andReturn());
+		JsonNode hit = json(this.mvc.perform(get("/api/v1/preview").param("artifactId", "shop").param("baseDir", " "))
+			.andReturn());
+		assertThat(first.path("root").asText()).isEqualTo("shop");
+		assertThat(hit.path("root").isTextual()).isTrue();
+		assertThat(hit.path("root").asText()).isEqualTo("shop");
+		assertThat(this.guard.stats().hitCount()).isPositive();
+	}
+
 }

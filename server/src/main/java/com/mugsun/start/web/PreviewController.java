@@ -74,6 +74,8 @@ public class PreviewController {
 	}
 
 	private Map<String, Object> preview(MugsunProjectRequest request, HttpServletRequest http) {
+		// 缓存命中时不经过校验器，baseDir 的缺省值（= artifactId）要在算缓存键之前补上，否则命中时 root 会是 null
+		ProjectRequestValidator.applyBaseDirDefault(request);
 		PreviewTree.Result tree = this.guard.get(request, () -> generate(request));
 		Map<String, Object> body = new LinkedHashMap<>();
 		body.put("requestId", ErrorResponses.requestId(http));
