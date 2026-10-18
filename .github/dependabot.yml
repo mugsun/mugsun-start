@@ -9,9 +9,18 @@ updates:
       timezone: Asia/Shanghai
     open-pull-requests-limit: 5
     groups:
-      github-actions:
+      # 小版本与补丁合成一个 PR；大版本单独一个 PR，便于逐个核对破坏性变更
+      github-actions-minor-patch:
         patterns:
           - "*"
+        update-types:
+          - minor
+          - patch
+      github-actions-major:
+        patterns:
+          - "*"
+        update-types:
+          - major
     commit-message:
       prefix: ci
 
@@ -23,8 +32,17 @@ updates:
       day: monday
       timezone: Asia/Shanghai
     open-pull-requests-limit: 5
+    # initializr 的小版本、大版本都可能改生成器 API，只收补丁；Spring Boot 大版本（4.x）要手工评估，不自动提
+    ignore:
+      - dependency-name: "io.spring.initializr:*"
+        update-types:
+          - version-update:semver-minor
+          - version-update:semver-major
+      - dependency-name: "org.springframework.boot:*"
+        update-types:
+          - version-update:semver-major
     groups:
-      # Spring Boot 与 initializr 一起升（initializr 跟随 Boot 发版），只收小版本与补丁
+      # Spring Boot 与 initializr 一起升（initializr 跟随 Boot 发版）：Boot 收小版本与补丁，initializr 只收补丁（见上方 ignore）
       spring-boot-and-initializr:
         patterns:
           - "org.springframework.boot:spring-boot*"
