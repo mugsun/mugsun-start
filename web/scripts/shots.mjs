@@ -109,7 +109,7 @@ await run('18-1440-gen-invalid', { query: '?mock=gen-invalid' }, async (p) => {
 }, { full: false })
 await run('19-390-modules-collapsed', { w: 390 }, async (p) => {
   await ready(p); await p.locator('#mg-0').scrollIntoViewIfNeeded(); await p.evaluate(() => window.scrollBy(0, -80)); await p.waitForTimeout(300)
-}, { full: false })
+}, { full: true })
 await run('20-390-modules-expanded', { w: 390 }, async (p) => {
   await ready(p); await p.locator('#mg-0').scrollIntoViewIfNeeded(); await p.evaluate(() => window.scrollBy(0, -80))
   const b = p.locator('.more'); const y0 = (await b.boundingBox()).y
@@ -120,5 +120,5 @@ await run('20-390-modules-expanded', { w: 390 }, async (p) => {
   console.log(`after collapse toggle y ${Math.round((await p.locator('.more').boundingBox()).y)}; list top ${Math.round(top)} -> ${Math.round((await p.locator('#mg-0').boundingBox()).y)}`)
   await b.click(); await p.mouse.move(5, 100); await p.waitForTimeout(300)
   await p.locator('#mg-0').scrollIntoViewIfNeeded(); await p.evaluate(() => window.scrollBy(0, -80)); await p.waitForTimeout(200)
-}, { full: false })
+}, { full: true })
 await browser.close()
