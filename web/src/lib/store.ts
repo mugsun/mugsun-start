@@ -4,7 +4,7 @@ import type { Metadata, ProjectRequest, PreviewResult, Fields, FieldName } from 
 import { derivePackage } from './validate'
 import { fromQuery } from './share'
 import { resolveScopeTypes, defaultType, FULLSTACK } from './scope'
-import { FALLBACK_FIELDS, FALLBACK_POSTGEN, FALLBACK_TYPES, FALLBACK_VERSIONS } from './defaults'
+import { FALLBACK_FIELDS, FALLBACK_POSTGEN, FALLBACK_TYPES } from './defaults'
 import { loc } from './l10n'
 import { i18n } from '@/i18n'
 
@@ -58,10 +58,12 @@ export function restorePackage() {
 }
 
 let fromShare = false
+let depsFromShare = false
 export function applyQuery(search: string) {
   const q = fromQuery(search, { fields: fields.value, allowedTypes: FALLBACK_TYPES.map((t) => t.id) })
   if (Object.keys(q).length === 0) return
   if (q.type) fromShare = true
+  if (q.dependencies !== undefined) depsFromShare = true
   Object.assign(form, q)
   if (q.packageName !== undefined) manual.packageName = q.packageName !== derivePackage(form.groupId, form.artifactId)
   if (q.name !== undefined) manual.name = q.name !== form.artifactId
@@ -81,7 +83,10 @@ export async function loadMetadata() {
     if (!fromShare) form.type = defaultType(m.types)
     if (!manual.description) form.description = fieldDefault('description')
     const known = new Set(m.modules.optional.map((d) => d.id))
-    form.dependencies = form.dependencies.filter((d) => known.has(d))
+    // 分享链接带了 dependencies 就以链接为准；否则按 optional[].default 预勾选
+    form.dependencies = depsFromShare
+      ? form.dependencies.filter((d) => known.has(d))
+      : m.modules.optional.filter((d) => d.default === true && d.appliesTo.includes(form.type)).map((d) => d.id)
     metaState.value = 'ready'
   } catch (e) {
     if (isAbort(e) || ctrl !== metaCtrl) return
@@ -92,7 +97,6 @@ export async function loadMetadata() {
 }
 
 export function toRequest(): ProjectRequest {
-  const m = metadata.value
   return {
     type: form.type,
     groupId: form.groupId,
@@ -100,14 +104,18 @@ export function toRequest(): ProjectRequest {
     name: form.name,
     description: form.description,
     packageName: form.packageName,
-    version: loc(fields.value.version?.default, locale()) || undefined,
     dependencies: [...form.dependencies],
-    bootVersion: m?.bootVersion.default ?? FALLBACK_VERSIONS.bootVersion,
-    javaVersion: m?.javaVersion.default ?? FALLBACK_VERSIONS.javaVersion,
-    packaging: m?.packaging.default ?? FALLBACK_VERSIONS.packaging,
-    database: m?.database.default ?? FALLBACK_VERSIONS.database,
     baseDir: form.artifactId
   }
+}
+
+export const FORM_FIELDS: readonly FieldName[] = ['groupId', 'artifactId', 'name', 'packageName', 'description']
+/** §4.4：INVALID_PARAMETER 的 details 回填到表单字段（preview 与 generate 共用），返回映射上的条数 */
+export function applyServerErrors(e: unknown): number {
+  if (!(e instanceof ApiError) || e.code !== 'INVALID_PARAMETER') return 0
+  const mapped = e.details.filter((d) => FORM_FIELDS.includes(d.field as FieldName))
+  for (const d of mapped) serverErrors[d.field as FieldName] = d.message
+  return mapped.length
 }
 
 /* ---------- 预览：POST /api/v1/preview，只采用最新一次 ---------- */
@@ -128,6 +136,7 @@ export async function loadPreview() {
   } catch (e) {
     if (isAbort(e) || ctrl !== previewCtrl) return
     previewError.value = e instanceof ApiError ? e : null
+    applyServerErrors(e)
     previewState.value = 'error'
   }
 }
@@ -137,7 +146,7 @@ export function __resetForTest() {
   metaCtrl?.abort(); previewCtrl?.abort()
   metaCtrl = previewCtrl = null
   metadata.value = null; metaState.value = 'loading'; preview.value = null; previewState.value = 'idle'
-  fromShare = false
+  fromShare = false; depsFromShare = false
   Object.assign(manual, { name: false, packageName: false, description: false })
   Object.assign(form, { type: FULLSTACK, groupId: 'com.example', artifactId: 'demo', name: 'demo', packageName: 'com.example.demo', description: fieldDefault('description'), dependencies: [] })
   for (const k of Object.keys(serverErrors)) delete serverErrors[k as FieldName]

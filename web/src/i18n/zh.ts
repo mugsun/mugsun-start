@@ -15,7 +15,7 @@ export default {
       nameRequired: '请填写项目名称。',
       name: '项目名称最长 50 个字符。',
       packageRequired: '请填写包名。',
-      packageName: '包名须由小写字母、数字和下划线组成的段以点连接，各段不能以数字开头，也不能是 Java 关键字。',
+      packageName: '包名须由小写字母、数字和下划线组成的段以点连接，各段不能以数字开头，不能是 Java 关键字或 true/false/null。',
       description: '描述最长 200 个字符。'
     }
   },
@@ -24,7 +24,7 @@ export default {
     notApplicable: '当前生成范围不适用此模块。',
     loadError: '模块列表加载失败，请检查网络后重试。', retry: '重试'
   },
-  preview: { invalid: '项目信息有误，修正后自动更新预览', error: '预览加载失败，请稍后重试。', requestId: '错误编号：{id}', fromModule: '来自模块：{m}', truncated: '文件较多，部分目录只显示数量。', stale: '预览更新失败，当前显示的是上一次的结果。', title: '目录结构', files: '共 {n} 个文件', empty: '暂无可预览的文件', updated: '目录已更新，共 {n} 个文件' },
+  preview: { unsupported: '请求包含一期不支持的选项，请刷新页面。', invalid: '项目信息有误，修正后自动更新预览', error: '预览加载失败，请稍后重试。', requestId: '错误编号：{id}', fromModule: '来自模块：{m}', truncated: '文件较多，部分目录只显示数量。', stale: '预览更新失败，当前显示的是上一次的结果。', title: '目录结构', files: '共 {n} 个文件', empty: '暂无可预览的文件', updated: '目录已更新，共 {n} 个文件' },
   bar: {
     summary: '{scope} · 已选 {n} 个可选模块 · {pkg}',
     share: '复制分享链接', shared: '分享链接已复制', download: '下载 ZIP', generating: '正在生成…',
@@ -32,8 +32,9 @@ export default {
     disabledLoading: '模块列表加载中，加载完成后可生成',
     disabledMeta: '模块列表加载失败，暂时无法生成',
     invalid: '有 {n} 项信息需要修改',
-    rateLimited: '请求过于频繁，请在 {s} 秒后重试（错误编号：{id}）',
-    rateLimitedNoWait: '请求过于频繁，请稍后重试（错误编号：{id}）',
+    rateLimited: '请求过于频繁，请在 {s} 秒后重试',
+    unsupported: '请求包含一期不支持的选项，请刷新页面后重试（错误编号：{id}）',
+    rateLimitedNoWait: '请求过于频繁，请稍后重试',
     timeout: '生成超时，请稍后重试',
     failed: '生成失败，请稍后重试（错误编号：{id}）'
   },

@@ -1,4 +1,4 @@
-// 按规格第 9 节拍 16 张验收截图。用法：BASE=http://localhost:3093 OUT=<目录> node scripts/shots.mjs
+// 按规格第 9 节拍验收截图（01–16），另加 17/18 两张错误态。用法：BASE=http://localhost:3093 OUT=<目录> node scripts/shots.mjs
 import { chromium } from '@playwright/test'
 import { mkdirSync } from 'node:fs'
 
@@ -86,5 +86,25 @@ await run('16-1440-keyboard-focus-module', {}, async (p) => {
   }
   await p.keyboard.press('Space')
   await p.waitForTimeout(400)
+}, { full: false })
+/** 记录提示文字与其背景的实际颜色和对比度（WCAG 相对亮度） */
+async function contrast(p, sel) {
+  const r = await p.evaluate((sel) => Array.from(document.querySelectorAll(sel)).map((el) => {
+    const fg = getComputedStyle(el).color
+    let n = el, bg = 'rgba(0, 0, 0, 0)'
+    while (n && (bg === 'rgba(0, 0, 0, 0)' || bg === 'transparent')) { bg = getComputedStyle(n).backgroundColor; n = n.parentElement }
+    return { text: el.textContent.trim(), fg, bg }
+  }), sel)
+  const lum = (c) => { const [r, g, b] = c.match(/[\d.]+/g).slice(0, 3).map(Number).map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4 }); return 0.2126 * r + 0.7152 * g + 0.0722 * b }
+  for (const x of r) { const a = lum(x.fg), b = lum(x.bg); console.log(`contrast ${sel} | ${x.text} | ${x.fg} on ${x.bg} | ${((Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)).toFixed(2)}:1`) }
+}
+await run('17-1440-gen-429', { query: '?mock=gen-429' }, async (p) => {
+  await ready(p); await p.click('.el-button--primary:has-text("下载 ZIP")'); await p.waitForSelector('.el-message--error'); await p.waitForTimeout(400)
+  await contrast(p, '.el-message--error .el-message__content')
+}, { full: false })
+await run('18-1440-gen-invalid', { query: '?mock=gen-invalid' }, async (p) => {
+  await ready(p); await p.click('.el-button--primary:has-text("下载 ZIP")'); await p.waitForSelector('.field-err'); await p.waitForTimeout(500)
+  await contrast(p, '.field-err')
+  await contrast(p, '.alert-row .el-alert__title')
 }, { full: false })
 await browser.close()

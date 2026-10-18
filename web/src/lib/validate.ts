@@ -1,8 +1,12 @@
 import type { FieldSpec } from '@/api'
 
-const JAVA_KEYWORDS = new Set(
-  'abstract assert boolean break byte case catch char class const continue default do double else enum extends final finally float for goto if implements import instanceof int interface long native new package private protected public return short static strictfp super switch synchronized this throw throws transient try void volatile while true false null var record yield'.split(' ')
+/** Java 关键字（含 var/record/yield 等上下文关键字，作包名段同样不可用） */
+export const JAVA_KEYWORDS: ReadonlySet<string> = new Set(
+  'abstract assert boolean break byte case catch char class const continue default do double else enum extends final finally float for goto if implements import instanceof int interface long native new package private protected public return short static strictfp super switch synchronized this throw throws transient try void volatile while var record yield'.split(' ')
 )
+/** 字面量，同样不能作包名段 */
+export const JAVA_LITERALS: ReadonlySet<string> = new Set(['true', 'false', 'null'])
+export const isReservedSegment = (s: string) => JAVA_KEYWORDS.has(s) || JAVA_LITERALS.has(s)
 
 export type FieldError = 'required' | 'maxLength' | 'pattern' | 'keyword' | null
 
@@ -16,7 +20,7 @@ export function checkField(v: string, spec: FieldSpec | undefined, opts: { javaP
     try { re = new RegExp(spec.pattern) } catch { re = null }
     if (re && !re.test(v)) return 'pattern'
   }
-  if (opts.javaPackage && v.split('.').some((s) => JAVA_KEYWORDS.has(s))) return 'keyword'
+  if (opts.javaPackage && v.split('.').some(isReservedSegment)) return 'keyword'
   return null
 }
 

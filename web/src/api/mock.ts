@@ -9,7 +9,10 @@
  *   gen-slow      生成不返回（看「正在生成…」）
  *   gen-429       生成返回 429 RATE_LIMITED，Retry-After: 30
  *   gen-invalid   生成返回 400 INVALID_PARAMETER（groupId 与 packageName）
+ *   gen-unsupported 生成返回 400 UNSUPPORTED_OPTION
+ *   请求里出现非默认的 bootVersion/javaVersion/packaging/language/configurationFileFormat 也返回 UNSUPPORTED_OPTION
  */
+import { isReservedSegment } from '../lib/validate'
 import type { ErrorBody, ErrorDetail, Fields, L10n, Metadata, PreviewNode, PreviewResult, ProjectRequest } from './types'
 
 export const MOCK_BASE = 'mock://start.mugsun.com'
@@ -61,8 +64,11 @@ export function buildMockMetadata(): Metadata {
         on('core-system', 'system', l('系统管理与多租户', 'System administration and multi-tenancy'), l('用户、角色、菜单、部门、多租户。', 'Users, roles, menus, departments and multi-tenancy.'), null),
         on('core-security', 'security', l('认证与安全', 'Authentication and security'), l('登录、验证码、双因子、密码策略与数据脱敏。', 'Sign-in, captcha, two-factor authentication, password policies and data masking.'), null),
         on('core-audit', 'audit', l('日志与审计', 'Logging and auditing'), l('操作日志防篡改与登录日志。', 'Tamper-evident operation logs and sign-in logs.'), null),
+        on('core-file-msg', 'message', l('文件、短信与消息', 'Files, SMS and messaging'), l('文件存储、短信、邮件、通知与站内消息。', 'File storage, SMS, email, notifications and in-app messages.'), null),
         on('core-workflow', 'flow', l('工作流', 'Workflow'), l('基于 warm-flow 的流程设计与审批。', 'Process design and approval based on warm-flow.'), 'phase-2'),
-        on('core-lowcode', 'lowcode', l('低代码与代码生成', 'Low-code and code generation'), l('代码生成、在线表单与表单设计器。', 'Code generation, online forms and a form designer.'), 'phase-2')
+        on('core-lowcode', 'lowcode', l('低代码与代码生成', 'Low-code and code generation'), l('代码生成、在线表单与表单设计器。', 'Code generation, online forms and a form designer.'), 'phase-2'),
+        on('core-open', 'open', l('开放平台与社交登录', 'Open platform and social sign-in'), l('OAuth2 客户端、API Key、调用日志与第三方登录。', 'OAuth2 clients, API keys, call logs and third-party sign-in.'), 'phase-2'),
+        on('core-ops', 'ops', l('定时任务与监控', 'Scheduled jobs and monitoring'), l('PowerJob 定时任务、运行监控与在线用户。', 'PowerJob scheduling, runtime monitoring and online users.'), null)
       ],
       optional: [
         opt('gis', 'geo', 'map', l('GIS', 'GIS'), l('地图、图层、地理围栏。', 'Maps, layers and geofences, with support for vector tiles and 3D globe rendering.'), l('仅后端时只含 REST 接口。', 'Backend only includes the REST API.')),
@@ -149,7 +155,7 @@ const MSG: Record<string, L10n> = {
   groupId: l('Group 只能包含小写字母、数字、下划线和点，且不能以数字开头。', 'The group can only contain lowercase letters, digits, underscores and dots, and cannot start with a digit.'),
   artifactId: l('Artifact 只能包含小写字母、数字和连字符，且须以字母开头，最长 50 个字符。', 'The artifact can only contain lowercase letters, digits and hyphens, must start with a letter and can be up to 50 characters.'),
   name: l('项目名称为必填项，最长 50 个字符。', 'The project name is required and can be up to 50 characters.'),
-  packageName: l('包名须由小写字母、数字和下划线组成的段以点连接，各段不能以数字开头。', 'The package name must be dot-separated segments of lowercase letters, digits and underscores that do not start with a digit.'),
+  packageName: l('包名须由小写字母、数字和下划线组成的段以点连接，各段不能以数字开头，不能是 Java 关键字或 true/false/null。', 'The package name must be dot-separated segments of lowercase letters, digits and underscores. Segments cannot start with a digit, be a Java keyword or be true, false or null.'),
   description: l('描述最长 200 个字符。', 'The description can be up to 200 characters.')
 }
 export function validateRequest(req: ProjectRequest, lang: 'zh' | 'en'): ErrorDetail[] {
@@ -158,7 +164,8 @@ export function validateRequest(req: ProjectRequest, lang: 'zh' | 'en'): ErrorDe
     if (f === 'version') continue
     const v = String((req as unknown as Record<string, unknown>)[f] ?? '')
     const bad = (spec.required && !v) || (spec.maxLength !== undefined && v.length > spec.maxLength) || (spec.pattern && v && !new RegExp(spec.pattern).test(v))
-    if (bad) out.push({ field: f, message: MSG[f][lang] })
+    const reserved = f === 'packageName' && v.split('.').some(isReservedSegment)
+    if (bad || reserved) out.push({ field: f, message: MSG[f][lang] })
   }
   return out
 }
@@ -190,6 +197,14 @@ function readRequest(init?: RequestInit): ProjectRequest {
   return o as unknown as ProjectRequest
 }
 
+/** 一期只接受默认值的参数（§4.2）；传了非默认值返回 UNSUPPORTED_OPTION */
+const FIXED_OPTIONS: Record<string, string> = { bootVersion: '3.5.13', javaVersion: '21', packaging: 'jar', language: 'java', configurationFileFormat: 'yaml', database: 'postgresql' }
+export function unsupportedOptions(req: ProjectRequest): ErrorDetail[] {
+  const r = req as unknown as Record<string, unknown>
+  return Object.entries(FIXED_OPTIONS).filter(([k, v]) => r[k] !== undefined && r[k] !== v).map(([k]) => ({ field: k, message: `${k} 一期只接受 ${FIXED_OPTIONS[k]}` }))
+}
+const UNSUPPORTED = l('包含一期不支持的选项。', 'The request contains an option that is not supported yet.')
+
 export async function mockFetch(url: string, init?: RequestInit): Promise<Response> {
   const path = url.replace(MOCK_BASE, '').split('?')[0]
   const signal = init?.signal
@@ -206,6 +221,8 @@ export async function mockFetch(url: string, init?: RequestInit): Promise<Respon
     await wait(120, signal)
     if (mode === 'preview-error') return err(500, 'GENERATION_FAILED', FAILED, lang, id)
     const req = readRequest(init)
+    const unsupported = unsupportedOptions(req)
+    if (unsupported.length) return err(400, 'UNSUPPORTED_OPTION', UNSUPPORTED, lang, id, unsupported)
     const details = validateRequest(req, lang)
     if (details.length) return err(400, 'INVALID_PARAMETER', l(details[0].message, details[0].message), lang, id, details)
     return json(200, buildPreview(req, id), id)
@@ -216,6 +233,8 @@ export async function mockFetch(url: string, init?: RequestInit): Promise<Respon
     if (mode === 'gen-fail') return err(500, 'GENERATION_FAILED', FAILED, lang, id)
     if (mode === 'gen-429') return err(429, 'RATE_LIMITED', l('请求过于频繁。', 'Too many requests.'), lang, id, [], { 'Retry-After': '30' })
     const req = readRequest(init)
+    const unsupported = mode === 'gen-unsupported' ? [{ field: 'bootVersion', message: 'bootVersion 一期只接受 3.5.13' }] : unsupportedOptions(req)
+    if (unsupported.length) return err(400, 'UNSUPPORTED_OPTION', UNSUPPORTED, lang, id, unsupported)
     const details = mode === 'gen-invalid'
       ? [{ field: 'groupId', message: MSG.groupId[lang] }, { field: 'packageName', message: MSG.packageName[lang] }]
       : validateRequest(req, lang)

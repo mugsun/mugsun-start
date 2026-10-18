@@ -13,8 +13,7 @@ import PreviewTree from './components/PreviewTree.vue'
 import ActionBar from './components/ActionBar.vue'
 import StartDrawer from './components/StartDrawer.vue'
 import { api, ApiError, isAbort } from './api'
-import { form, scopeTypes, loadMetadata, applyQuery, toRequest, metaState, serverErrors } from './lib/store'
-import type { FieldName } from './api'
+import { form, scopeTypes, loadMetadata, applyQuery, toRequest, metaState, applyServerErrors } from './lib/store'
 import { toQuery } from './lib/share'
 
 const { t, locale } = useI18n()
@@ -63,22 +62,22 @@ async function download() {
 }
 
 let genCtrl: AbortController | null = null
-const FORM_FIELDS: FieldName[] = ['groupId', 'artifactId', 'name', 'packageName', 'description']
 
 /** §4.4：字段错误回填表单；429 提示等待时间；其余给出错误编号 */
 function handleGenerateError(e: unknown) {
   const err = e instanceof ApiError ? e : null
-  const mapped = (err?.code === 'INVALID_PARAMETER' ? err.details : []).filter((d) => FORM_FIELDS.includes(d.field as FieldName))
-  if (mapped.length) {
-    for (const d of mapped) serverErrors[d.field as FieldName] = d.message
-    invalidCount.value = mapped.length
+  const n = applyServerErrors(err)
+  if (n) {
+    invalidCount.value = n
     formRef.value?.focusFirstServerError()
     return
   }
   const id = err?.requestId || '-'
   const message = err?.code === 'RATE_LIMITED'
-    ? (err.retryAfter !== undefined ? t('bar.rateLimited', { s: err.retryAfter, id }) : t('bar.rateLimitedNoWait', { id }))
-    : err?.code === 'TIMEOUT' ? t('bar.timeout') : t('bar.failed', { id })
+    ? (err.retryAfter !== undefined ? t('bar.rateLimited', { s: err.retryAfter }) : t('bar.rateLimitedNoWait'))
+    : err?.code === 'TIMEOUT' ? t('bar.timeout')
+    : err?.code === 'UNSUPPORTED_OPTION' ? t('bar.unsupported', { id })
+    : t('bar.failed', { id })
   ElMessage({ type: 'error', message, duration: 6000, showClose: true })
 }
 

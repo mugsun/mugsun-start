@@ -3,6 +3,7 @@ import { nextTick } from 'vue'
 import { api } from '@/api'
 import { buildMockMetadata } from '@/api/mock'
 import * as s from './store'
+import { ApiError } from '@/api'
 
 const settle = async () => { for (let i = 0; i < 5; i++) await Promise.resolve(); await nextTick() }
 
@@ -45,14 +46,14 @@ describe('applyQuery', () => {
 describe('loadMetadata', () => {
   it('success: defaults from metadata, unknown deps filtered, no always-on in request', async () => {
     vi.spyOn(api, 'getMetadata').mockResolvedValue(buildMockMetadata())
-    s.form.dependencies = ['gis', 'nope']
+    s.applyQuery('?dependencies=gis,nope')
     await s.loadMetadata()
     expect(s.metaState.value).toBe('ready')
     expect(s.form.dependencies).toEqual(['gis'])
     const r = s.toRequest()
     expect(r.dependencies).toEqual(['gis'])
-    expect(r.bootVersion).toBe('3.5.13')
     expect(r.baseDir).toBe('demo')
+    for (const k of ['bootVersion', 'javaVersion', 'packaging', 'language', 'configurationFileFormat', 'database', 'version']) expect(r).not.toHaveProperty(k)
   })
   it('failure: error state, scope types and defaults still available', async () => {
     vi.spyOn(api, 'getMetadata').mockRejectedValue(new Error('boom'))
@@ -60,7 +61,7 @@ describe('loadMetadata', () => {
     expect(s.metaState.value).toBe('error')
     expect(s.scopeTypes.value.map((x) => x.id)).toEqual(['mugsun-backend', 'mugsun-fullstack'])
     expect(s.form.description).not.toBe('')
-    expect(s.toRequest().bootVersion).toBe('3.5.13')
+    expect(s.toRequest().type).toBe('mugsun-fullstack')
   })
   it('race: only the latest result is applied; previous request is aborted', async () => {
     const signals: AbortSignal[] = []
@@ -80,12 +81,50 @@ describe('loadMetadata', () => {
 describe('loadPreview', () => {
   it('keeps latest; error keeps previous tree', async () => {
     const spy = vi.spyOn(api, 'preview')
-    spy.mockResolvedValueOnce({ requestId: 'a', root: 'demo', fileCount: 1, dirCount: 1, tree: [] })
+    spy.mockResolvedValueOnce({ requestId: 'a', root: 'demo', fileCount: 1, dirCount: 1, truncated: false, tree: [] })
     await s.loadPreview()
     expect(s.previewState.value).toBe('ready')
     spy.mockRejectedValueOnce(new Error('x'))
     await s.loadPreview()
     expect(s.previewState.value).toBe('error')
     expect(s.preview.value?.requestId).toBe('a')
+  })
+})
+
+describe('optional[].default', () => {
+  it('phase 1 defaults are all false → nothing preselected', async () => {
+    vi.spyOn(api, 'getMetadata').mockResolvedValue(buildMockMetadata())
+    await s.loadMetadata()
+    expect(s.form.dependencies).toEqual([])
+  })
+  it('preselects modules whose default is true', async () => {
+    const m = buildMockMetadata()
+    m.modules.optional[0].default = true; m.modules.optional[2].default = true
+    vi.spyOn(api, 'getMetadata').mockResolvedValue(m)
+    await s.loadMetadata()
+    expect(s.form.dependencies).toEqual(['gis', 'ai'])
+  })
+  it('share link dependencies win over defaults', async () => {
+    const m = buildMockMetadata(); m.modules.optional[0].default = true
+    vi.spyOn(api, 'getMetadata').mockResolvedValue(m)
+    s.applyQuery('?dependencies=track')
+    await s.loadMetadata()
+    expect(s.form.dependencies).toEqual(['track'])
+  })
+})
+
+describe('server field errors', () => {
+  const invalid = (fields: string[]) => new ApiError(400, 'INVALID_PARAMETER', 'm', 'r', fields.map((field) => ({ field, message: `bad ${field}` })))
+  it('preview INVALID_PARAMETER maps details to form fields', async () => {
+    vi.spyOn(api, 'preview').mockRejectedValue(invalid(['groupId', 'packageName']))
+    await s.loadPreview()
+    expect(s.serverErrors.groupId).toBe('bad groupId')
+    expect(s.serverErrors.packageName).toBe('bad packageName')
+  })
+  it('ignores unknown fields and other codes', () => {
+    expect(s.applyServerErrors(invalid(['bootVersion']))).toBe(0)
+    expect(s.applyServerErrors(new ApiError(400, 'UNSUPPORTED_OPTION', 'm', 'r', [{ field: 'packageName', message: 'x' }]))).toBe(0)
+    expect(s.serverErrors.packageName).toBeUndefined()
+    expect(s.applyServerErrors(invalid(['packageName']))).toBe(1)
   })
 })

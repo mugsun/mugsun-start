@@ -1,22 +1,14 @@
 <script setup lang="ts">
 import { ref, watch, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
-import {
-  Setting, Lock, Document, Message, Share, EditPen, Connection, Monitor, MapLocation, DataAnalysis, MagicStick, Box, WarningFilled, TopRight
-} from '@element-plus/icons-vue'
-import type { Component } from 'vue'
+import { WarningFilled, TopRight } from '@element-plus/icons-vue'
 import { form, alwaysOn, optional, metaState, BACKEND } from '@/lib/store'
 import { loc } from '@/lib/l10n'
 import type { OptionalModule } from '@/api'
 
 const emit = defineEmits<{ retry: [] }>()
 const { t, locale } = useI18n()
-/** metadata 下发的 icon 名 → 组件；未知名字回退为 Box */
-const ICONS: Record<string, Component> = {
-  system: Setting, security: Lock, audit: Document, message: Message, file: Message, flow: Share, lowcode: EditPen,
-  open: Connection, ops: Monitor, map: MapLocation, track: DataAnalysis, ai: MagicStick
-}
-const icon = (n?: string) => (n && ICONS[n]) || Box
+import { moduleIcon as icon } from './moduleIcons'
 const L = (v: Parameters<typeof loc>[0]) => loc(v, locale.value)
 const disabledFor = (d: OptionalModule) => !d.appliesTo.includes(form.type)
 const backendNote = (d: OptionalModule) => (form.type === BACKEND ? L(d.notes?.backendOnly) : '')

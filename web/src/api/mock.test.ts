@@ -22,6 +22,11 @@ describe('mock metadata (§4.1)', () => {
     expect(m.modules.alwaysOn.every((d) => d.removableIn === null || typeof d.removableIn === 'string')).toBe(true)
     expect(m.postGenerate.commands['mugsun-fullstack'].at(-1)).toContain('{artifactId}-pc')
   })
+  it('8 always-on modules in slices order; optional defaults false', () => {
+    const m = buildMockMetadata()
+    expect(m.modules.alwaysOn.map((d) => d.id)).toEqual(['core-system', 'core-security', 'core-audit', 'core-file-msg', 'core-workflow', 'core-lowcode', 'core-open', 'core-ops'])
+    expect(m.modules.optional.map((d) => d.default)).toEqual([false, false, false])
+  })
   it('served via GET with ETag', async () => {
     const r = await mockFetch(`${MOCK_BASE}/api/v1/metadata`, { headers: { 'Accept-Language': 'zh' } })
     expect(r.headers.get('ETag')).toBeTruthy()
@@ -57,6 +62,21 @@ describe('mock via http api', () => {
     const e = await api.preview({ ...base, groupId: 'Bad' }, { locale: 'zh-CN' }).catch((x) => x)
     expect(e.code).toBe('INVALID_PARAMETER')
     expect(e.details[0].field).toBe('groupId')
+  })
+  it('truncated is always present', async () => {
+    expect((await api.preview(base, { locale: 'en' })).truncated).toBe(false)
+  })
+  it('package keyword/literal → INVALID_PARAMETER on packageName', async () => {
+    for (const p of ['com.class', 'com.null']) {
+      const e = await api.preview({ ...base, packageName: p }, { locale: 'en' }).catch((x) => x)
+      expect(e.details.map((d: { field: string }) => d.field)).toEqual(['packageName'])
+    }
+  })
+  it('non-default fixed option → UNSUPPORTED_OPTION', async () => {
+    const e = await api.generate({ ...base, bootVersion: '3.4.0' } as typeof base, { locale: 'en' }).catch((x) => x)
+    expect(e).toMatchObject({ status: 400, code: 'UNSUPPORTED_OPTION' })
+    setMockMode('gen-unsupported')
+    expect(await api.generate(base, { locale: 'en' }).catch((x) => x)).toMatchObject({ code: 'UNSUPPORTED_OPTION' })
   })
   it('scenarios', async () => {
     setMockMode('gen-429')

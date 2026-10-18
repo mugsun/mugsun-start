@@ -4,7 +4,7 @@ import { ApiError, type ProjectRequest } from './types'
 
 const req: ProjectRequest = {
   type: 'mugsun-fullstack', groupId: 'com.example', artifactId: 'demo', name: 'demo', description: '中文 描述',
-  packageName: 'com.example.demo', version: '0.0.1-SNAPSHOT', dependencies: ['gis', 'ai'], bootVersion: '3.5.13', baseDir: 'demo'
+  packageName: 'com.example.demo', dependencies: ['gis', 'ai'], baseDir: 'demo'
 }
 const zipRes = (headers: Record<string, string> = {}) =>
   new Response('PK', { status: 200, headers: { 'Content-Type': 'application/zip', 'X-Request-Id': 'rid-1', ...headers } })
@@ -17,14 +17,18 @@ describe('serialize', () => {
     expect(q.get('baseDir')).toBe('demo')
     expect(toFormParams({ ...req, dependencies: [] }).has('dependencies')).toBe(false)
   })
+  it('only sends contract fields; fixed options are never sent', () => {
+    const keys = [...toFormParams(req).keys()].sort()
+    expect(keys).toEqual(['artifactId', 'baseDir', 'dependencies', 'description', 'groupId', 'name', 'packageName', 'type'])
+  })
 })
 
 describe('headers', () => {
-  it('Retry-After seconds and date', () => {
+  it('Retry-After: integer seconds only; anything else is undefined (default message)', () => {
     expect(parseRetryAfter('30')).toBe(30)
-    expect(parseRetryAfter(new Date(1_000_000 + 12_000).toUTCString(), 1_000_000)).toBe(12)
-    expect(parseRetryAfter('soon')).toBeUndefined()
-    expect(parseRetryAfter(null)).toBeUndefined()
+    expect(parseRetryAfter(' 5 ')).toBe(5)
+    expect(parseRetryAfter('0')).toBe(0)
+    for (const bad of [null, '', 'soon', '-1', '1.5', '30s', 'Wed, 21 Oct 2026 07:28:00 GMT']) expect(parseRetryAfter(bad)).toBeUndefined()
   })
   it('Content-Disposition', () => {
     expect(parseContentDisposition('attachment; filename="demo.zip"')).toBe('demo.zip')
@@ -43,6 +47,10 @@ describe('error body (§4.4)', () => {
   it('falls back to header requestId and HTTP code for non-JSON', async () => {
     const e = await toApiError(new Response('<html>', { status: 502, statusText: 'Bad Gateway', headers: { 'X-Request-Id': 'h-1' } }))
     expect([e.code, e.requestId, e.details]).toEqual(['HTTP_502', 'h-1', []])
+  })
+  it('429 with invalid Retry-After falls back to undefined', async () => {
+    const e = await toApiError(new Response('{"code":"RATE_LIMITED","message":""}', { status: 429, headers: { 'Content-Type': 'application/json', 'Retry-After': 'later' } }))
+    expect(e.retryAfter).toBeUndefined()
   })
   it('429 reads Retry-After', async () => {
     const e = await toApiError(new Response(JSON.stringify({ code: 'RATE_LIMITED', message: '' }), { status: 429, headers: { 'Content-Type': 'application/json', 'Retry-After': '30' } }))

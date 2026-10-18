@@ -83,14 +83,12 @@ export interface ProjectRequest {
   name: string
   description: string
   packageName: string
+  /** 可选，后端默认 0.0.1-SNAPSHOT；界面没有该输入项，因此不传 */
   version?: string
   /** 只放可选模块（gis/track/ai），常驻项不传 */
   dependencies: string[]
-  bootVersion?: string
-  javaVersion?: string
-  packaging?: string
-  database?: string
   baseDir?: string
+  /* bootVersion/javaVersion/packaging/language/configurationFileFormat/database 一期只接受默认值，前端不传（非默认会 400 UNSUPPORTED_OPTION） */
 }
 
 /** §4.3 预览 */
@@ -110,7 +108,8 @@ export interface PreviewResult {
   root: string
   fileCount: number
   dirCount: number
-  truncated?: boolean
+  /** 始终返回，默认 false */
+  truncated: boolean
   tree: PreviewNode[]
 }
 

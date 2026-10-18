@@ -65,7 +65,7 @@ onBeforeUnmount(() => { clearTimeout(hlTimer); clearTimeout(skTimer) })
       </template>
       <div v-else-if="previewState === 'error' && !preview" class="perr" role="alert">
         <el-icon :size="28" class="err-icon" aria-hidden="true"><WarningFilled /></el-icon>
-        <span>{{ previewError?.code === 'INVALID_PARAMETER' ? t('preview.invalid') : t('preview.error') }}</span>
+        <span>{{ previewError?.code === 'INVALID_PARAMETER' ? t('preview.invalid') : previewError?.code === 'UNSUPPORTED_OPTION' ? t('preview.unsupported') : t('preview.error') }}</span>
         <span v-if="previewError?.requestId" class="rid">{{ t('preview.requestId', { id: previewError.requestId }) }}</span>
         <el-button size="small" @click="loadPreview()">{{ t('modules.retry') }}</el-button>
       </div>
@@ -98,8 +98,11 @@ onBeforeUnmount(() => { clearTimeout(hlTimer); clearTimeout(skTimer) })
 .head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 12px; gap: 12px; }
 h2 { margin: 0; font-size: 16px; font-weight: 600; }
 .count { font-size: 13px; color: var(--el-text-color-secondary); white-space: nowrap; }
-.body { overflow: auto; border-radius: 8px; background: var(--el-bg-color); border: 1px solid var(--el-border-color-lighter); padding: 8px; }
-.tree { background: transparent; font-family: var(--mono); font-size: 13px; }
+.body { overflow-x: auto; overflow-y: auto; border-radius: 8px; background: var(--el-bg-color); border: 1px solid var(--el-border-color-lighter); padding: 8px; }
+.tree { background: transparent; font-family: var(--mono); font-size: 13px; min-width: max-content; }
+/* 窄屏下文件名不截断，和启动说明的命令块一样横向滚动 */
+.tree :deep(.el-tree-node__content),
+.tree :deep(.el-tree-node__label) { white-space: nowrap; overflow: visible; text-overflow: clip; }
 .node { display: inline-flex; align-items: center; gap: 6px; padding: 0 6px; border-radius: 4px; transition: background-color .3s; }
 .node.hl { background: var(--brand-tint); }
 .ni { color: var(--el-text-color-secondary); }

@@ -16,7 +16,9 @@ pnpm build
 - 错误体 `{code,message,requestId,details}`：`INVALID_PARAMETER` 的 details 映射到表单字段；429 读取 `Retry-After`。
 - 下载文件名取 `Content-Disposition`，并校验 `Content-Type: application/zip`。
 - 默认值、校验规则、启动说明来自 metadata `fields` / `postGenerate`；接口失败时用 `src/lib/defaults.ts` 兜底。
-- mock 场景：`?mock=meta-error|meta-timeout|meta-loading|preview-error|gen-fail|gen-slow|gen-429|gen-invalid`。
+- mock 场景：`?mock=meta-error|meta-timeout|meta-loading|preview-error|gen-fail|gen-slow|gen-429|gen-invalid|gen-unsupported`。
+- 正式部署前后端同源（start.mugsun.com），无需 CORS；如跨域联调，后端 `Access-Control-Expose-Headers` 已包含 `Content-Disposition`、`X-Request-Id`、`Retry-After`。
+- 请求只发送 type、groupId、artifactId、name、description、packageName、dependencies、baseDir；bootVersion/javaVersion/packaging/language/configurationFileFormat/database 一期只接受默认值，前端不传（version 可选，后端默认 0.0.1-SNAPSHOT，界面无该项故不传）。
 
 ## 构建
 - Element Plus 经 unplugin-vue-components 按需引入（`src/components.d.ts` 自动生成）；`ElMessage` 样式在 `main.ts` 手动引入。
@@ -24,7 +26,7 @@ pnpm build
 - 本仓库提交 `pnpm-lock.yaml`。
 
 ## 截图
-`BASE=http://localhost:3093 OUT=<目录> pnpm shots`，按规格第 9 节输出 16 张，均标注「前端 mock 数据」。
+`BASE=http://localhost:3093 OUT=<目录> pnpm shots`，按规格第 9 节输出 01–16，另有 17（429）、18（字段错误），均标注「前端 mock 数据」。
 
 ## 品牌素材
 - 顶栏 logo：`src/components/BrandLogo.vue`，28px 方标 `src/assets/brand/mugsun-icon-dark.svg`（与 mugsun-pc#72 同源）+ Saira 实时字标 MUGSUN（`src/assets/brand/fonts/mugsun-saira-600.woff2`，OFL 许可见同目录 `LICENSE-Saira-OFL.txt`）。

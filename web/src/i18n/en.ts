@@ -17,7 +17,7 @@ const en: typeof zh = {
       nameRequired: 'Enter a project name.',
       name: 'The project name can be up to 50 characters.',
       packageRequired: 'Enter a package name.',
-      packageName: 'The package name must be dot-separated segments of lowercase letters, digits and underscores. Segments cannot start with a digit or be a Java keyword.',
+      packageName: 'The package name must be dot-separated segments of lowercase letters, digits and underscores. Segments cannot start with a digit, be a Java keyword or be true, false or null.',
       description: 'The description can be up to 200 characters.'
     }
   },
@@ -26,7 +26,7 @@ const en: typeof zh = {
     notApplicable: 'This module does not apply to the selected generation scope.',
     loadError: 'The module list could not be loaded. Check your network connection and try again.', retry: 'Retry'
   },
-  preview: { invalid: 'Some project details are invalid. The preview updates once they are corrected.', error: 'The preview could not be loaded. Try again later.', requestId: 'Error ID: {id}', fromModule: 'From module: {m}', truncated: 'Some directories only show item counts because the project has many files.', stale: 'The preview could not be updated. The previous result is shown.', title: 'Project structure', files: '{n} files', empty: 'There are no files to preview', updated: 'Project structure updated, {n} files' },
+  preview: { unsupported: 'The request contains an option that is not supported yet. Refresh the page.', invalid: 'Some project details are invalid. The preview updates once they are corrected.', error: 'The preview could not be loaded. Try again later.', requestId: 'Error ID: {id}', fromModule: 'From module: {m}', truncated: 'Some directories only show item counts because the project has many files.', stale: 'The preview could not be updated. The previous result is shown.', title: 'Project structure', files: '{n} files', empty: 'There are no files to preview', updated: 'Project structure updated, {n} files' },
   bar: {
     summary: '{scope} · {n} optional modules selected · {pkg}',
     share: 'Copy share link', shared: 'Share link copied', download: 'Download ZIP', generating: 'Generating…',
@@ -34,8 +34,9 @@ const en: typeof zh = {
     disabledLoading: 'Generation will be available once the module list has loaded',
     disabledMeta: 'Generation is unavailable because the module list could not be loaded',
     invalid: '{n} fields need to be corrected',
-    rateLimited: 'Too many requests. Try again in {s} seconds. (Error ID: {id})',
-    rateLimitedNoWait: 'Too many requests. Try again later. (Error ID: {id})',
+    rateLimited: 'Too many requests. Try again in {s} seconds.',
+    unsupported: 'The request contains an option that is not supported yet. Refresh the page and try again. (Error ID: {id})',
+    rateLimitedNoWait: 'Too many requests. Try again later.',
     timeout: 'Generation timed out. Try again later.',
     failed: 'Generation failed. Try again later. (Error ID: {id})'
   },

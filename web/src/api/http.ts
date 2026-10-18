@@ -21,11 +21,10 @@ export function toFormParams(req: ProjectRequest): URLSearchParams {
 }
 
 /** Retry-After：秒数或 HTTP 日期 */
-export function parseRetryAfter(v: string | null, now = Date.now()): number | undefined {
-  if (!v) return undefined
-  if (/^\d+$/.test(v.trim())) return Number(v.trim())
-  const t = Date.parse(v)
-  return Number.isNaN(t) ? undefined : Math.max(0, Math.ceil((t - now) / 1000))
+/** Retry-After：后端只发整数秒；非法值返回 undefined，界面走默认提示 */
+export function parseRetryAfter(v: string | null): number | undefined {
+  const s = v?.trim() ?? ''
+  return /^\d{1,6}$/.test(s) ? Number(s) : undefined
 }
 
 /** Content-Disposition 文件名：优先 filename*（RFC 5987），否则 filename */
