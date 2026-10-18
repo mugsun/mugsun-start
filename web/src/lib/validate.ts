@@ -28,7 +28,11 @@ export function checkField(v: string, spec: FieldSpec | undefined, opts: { javaP
   return null
 }
 
-/** 包名 = Group + "." + Artifact（去掉连字符） */
+/**
+ * 包名 = Group + "." + Artifact，连字符换成 _，整体转小写。
+ * 与后端 ProjectRequestValidator.derivedPackageName（#10 @206b946）逐字一致：只做这两步，不清理其他字符
+ * （Group/Artifact 的非法字符、数字开头由各自字段校验拦下）。shop-admin → shop_admin，in-t → in_t。
+ */
 export function derivePackage(group: string, artifact: string) {
-  return [group, artifact.replace(/-/g, '')].filter(Boolean).join('.')
+  return [group, artifact].filter(Boolean).join('.').replace(/-/g, '_').toLowerCase()
 }

@@ -15,6 +15,8 @@
  *   gen-invalid-noreason 生成返回 INVALID_PARAMETER，details 只有 reason、message 为空
  *   gen-invalid-other 生成返回 400 INVALID_PARAMETER，但 field 不在表单里（baseDir）
  *   preview-body-invalid 预览返回 400 INVALID_PARAMETER，details [{field:"body",reason:"invalid"}]（#5：JSON 解析失败）
+ *   gen-406 / gen-415 生成返回 406 NOT_ACCEPTABLE / 415 UNSUPPORTED_MEDIA_TYPE（#10）
+ *   preview-429   预览返回 429 RATE_LIMITED，Retry-After: 30（#9 并发名额等待超时）
  *   preview-modules 预览节点带 module（S4 计划字段，#5 不返回；默认不带）
  *   请求里出现非默认的 bootVersion/javaVersion/packaging/language/configurationFileFormat 也返回 UNSUPPORTED_OPTION
  */
@@ -189,7 +191,9 @@ const ERROR: Record<string, L10n> = {
   RATE_LIMITED: l('请求过于频繁，请在 {0} 秒后重试。', 'Too many requests. Try again in {0} seconds.'),
   GENERATION_FAILED: l('生成失败，请稍后重试。反馈问题时请附上请求编号。', 'Generation failed. Try again later, and include the request ID if you report the problem.'),
   TEMPLATE_UNAVAILABLE: l('模板暂不可用，请稍后重试。', 'The template is unavailable. Try again later.'),
-  NOT_FOUND: l('请求的地址不存在。', 'The requested resource does not exist.')
+  NOT_FOUND: l('请求的地址不存在。', 'The requested resource does not exist.'),
+  NOT_ACCEPTABLE: l('无法按请求的格式返回结果，请接受 JSON 格式的响应。', "The response can't be returned in the requested format. Accept a JSON response."),
+  UNSUPPORTED_MEDIA_TYPE: l('不支持该请求体格式。', "This request body format isn't supported.")
 }
 const fmt = (s: string, args: unknown[]) => s.replace(/\{(\d)\}/g, (_m, i) => String(args[Number(i)] ?? ''))
 type Problem = { field: string; reason: string; args?: unknown[] }
@@ -299,6 +303,7 @@ export async function mockFetch(url: string, init?: RequestInit): Promise<Respon
   if (path === '/api/v1/preview') {
     await wait(120, signal)
     if (mode === 'preview-error') return problemResponse(500, 'GENERATION_FAILED', [], lang, id)
+    if (mode === 'preview-429') return problemResponse(429, 'RATE_LIMITED', [], lang, id, { 'Retry-After': '30' })
     if (mode === 'preview-body-invalid') return problemResponse(400, 'INVALID_PARAMETER', [{ field: 'body', reason: 'invalid' }], lang, id)
     const req = readRequest(init)
     const bad = serverCheck(req, lang, id)
@@ -309,6 +314,8 @@ export async function mockFetch(url: string, init?: RequestInit): Promise<Respon
     if (mode === 'gen-slow') await hang(signal)
     await wait(600, signal)
     if (mode === 'gen-fail') return problemResponse(500, 'GENERATION_FAILED', [], lang, id)
+    if (mode === 'gen-406') return problemResponse(406, 'NOT_ACCEPTABLE', [], lang, id)
+    if (mode === 'gen-415') return problemResponse(415, 'UNSUPPORTED_MEDIA_TYPE', [], lang, id)
     if (mode === 'gen-429') return problemResponse(429, 'RATE_LIMITED', [], lang, id, { 'Retry-After': '30' })
     const req = readRequest(init)
     if (mode === 'gen-unknown-dep') return problemResponse(400, 'UNKNOWN_DEPENDENCY', [{ field: 'dependencies', reason: 'unknown', args: ['legacy-report'] }], lang, id)

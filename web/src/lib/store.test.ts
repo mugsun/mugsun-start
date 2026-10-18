@@ -16,14 +16,14 @@ describe('auto follow', () => {
     s.form.artifactId = 'my-app'
     await nextTick()
     expect(s.form.name).toBe('my-app')
-    expect(s.form.packageName).toBe('com.example.myapp')
+    expect(s.form.packageName).toBe('com.example.my_app')
     s.manual.packageName = true
     s.form.packageName = 'org.custom'
     s.form.groupId = 'org.x'
     await nextTick()
     expect(s.form.packageName).toBe('org.custom')
     s.restorePackage()
-    expect(s.form.packageName).toBe('org.x.myapp')
+    expect(s.form.packageName).toBe('org.x.my_app')
   })
   it('editing a field clears its server error', async () => {
     s.serverErrors.groupId = 'bad'
@@ -159,5 +159,31 @@ describe('details messages pass the same guard', () => {
     }
     s.applyServerErrors(inv('服务端的 Group 文案'))
     expect(s.serverErrors.groupId).toBe('服务端的 Group 文案')
+  })
+})
+
+describe('preview 429 (#9): wait seconds, no retry storm', () => {
+  it('429 sets a cooldown from Retry-After; changes during it collapse into one request after it', async () => {
+    vi.useFakeTimers()
+    try {
+      const spy = vi.spyOn(api, 'preview').mockRejectedValueOnce(new ApiError(429, 'RATE_LIMITED', 'x', 'r', [], 1))
+      await s.loadPreview()
+      expect(s.previewError.value?.retryAfter).toBe(1)
+      expect(s.previewCooldownUntil.value).toBeGreaterThan(Date.now())
+      spy.mockResolvedValue({ requestId: 'r2', root: 'demo', fileCount: 0, dirCount: 0, truncated: false, tree: [] })
+      await s.loadPreview(); await s.loadPreview(); await s.loadPreview()
+      expect(spy).toHaveBeenCalledTimes(1)
+      await vi.advanceTimersByTimeAsync(1000)
+      expect(spy).toHaveBeenCalledTimes(2)
+      await vi.advanceTimersByTimeAsync(10_000)
+      expect(spy).toHaveBeenCalledTimes(2)
+      expect(s.previewState.value).toBe('ready')
+    } finally { vi.useRealTimers() }
+  })
+  it('without Retry-After uses the default cooldown', async () => {
+    vi.spyOn(api, 'preview').mockRejectedValueOnce(new ApiError(429, 'RATE_LIMITED', '', 'r'))
+    const t0 = Date.now()
+    await s.loadPreview()
+    expect(s.previewCooldownUntil.value - t0).toBeGreaterThanOrEqual(s.PREVIEW_COOLDOWN_DEFAULT * 1000 - 50)
   })
 })

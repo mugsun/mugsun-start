@@ -44,6 +44,13 @@ describe('error body (§4.4)', () => {
     const e = await toApiError(new Response(JSON.stringify({ code: 'INVALID_PARAMETER', message: 'm', requestId: '01J', details: [{ field: 'groupId', message: 'x' }] }), { status: 400, headers: { 'Content-Type': 'application/json' } }))
     expect([e.status, e.code, e.message, e.requestId, e.details[0].field]).toEqual([400, 'INVALID_PARAMETER', 'm', '01J', 'groupId'])
   })
+  it('#10 Tomcat/error-page 400: JSON with charset, field=request, X-Request-Id', async () => {
+    const e = await toApiError(new Response(JSON.stringify({ code: 'INVALID_PARAMETER', message: '请求参数不符合要求，请检查标出的字段。', requestId: 't-1', details: [{ field: 'request', reason: 'invalid', message: '请求参数不正确。' }] }), { status: 400, headers: { 'Content-Type': 'application/json;charset=UTF-8', 'X-Request-Id': 't-1' } }))
+    expect(e).toMatchObject({ status: 400, code: 'INVALID_PARAMETER', requestId: 't-1' })
+    expect(e.details[0].field).toBe('request')
+    const n = await toApiError(new Response(JSON.stringify({ code: 'NOT_ACCEPTABLE', message: 'm' }), { status: 406, headers: { 'Content-Type': 'application/json; charset=utf-8', 'X-Request-Id': 'h-2' } }))
+    expect(n).toMatchObject({ status: 406, code: 'NOT_ACCEPTABLE', requestId: 'h-2' })
+  })
   it('falls back to header requestId and HTTP code for non-JSON', async () => {
     const e = await toApiError(new Response('<html>', { status: 502, statusText: 'Bad Gateway', headers: { 'X-Request-Id': 'h-1' } }))
     expect([e.code, e.requestId, e.details]).toEqual(['HTTP_502', 'h-1', []])

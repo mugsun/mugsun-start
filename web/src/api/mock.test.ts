@@ -113,6 +113,18 @@ describe('mock via http api', () => {
     expect(e).toMatchObject({ status: 400, code: 'INVALID_PARAMETER' })
     expect(e.details).toEqual([{ field: 'body', reason: 'invalid', message: '请求体不是有效的 JSON，或字段类型不正确。' }])
   })
+  it('preview-429 carries Retry-After; gen-406/gen-415 return the #10 codes', async () => {
+    setMockMode('preview-429')
+    expect(await api.preview(base, { locale: 'en' }).catch((x) => x)).toMatchObject({ status: 429, code: 'RATE_LIMITED', retryAfter: 30 })
+    setMockMode('gen-406')
+    expect(await api.generate(base, { locale: 'zh-CN' }).catch((x) => x)).toMatchObject({ status: 406, code: 'NOT_ACCEPTABLE', message: '无法按请求的格式返回结果，请接受 JSON 格式的响应。' })
+    setMockMode('gen-415')
+    expect(await api.generate(base, { locale: 'en' }).catch((x) => x)).toMatchObject({ status: 415, code: 'UNSUPPORTED_MEDIA_TYPE', message: "This request body format isn't supported." })
+  })
+  it('preview root falls back to artifactId when baseDir is empty (#10)', () => {
+    expect(buildPreview({ ...base, baseDir: '' }, 'r').root).toBe('demo')
+    expect(buildPreview({ ...base, baseDir: undefined }, 'r').root).toBe('demo')
+  })
   it('UNKNOWN_DEPENDENCY and an INVALID_PARAMETER field outside the form', async () => {
     expect(await api.generate({ ...base, dependencies: ['legacy'] }, { locale: 'zh-CN' }).catch((x) => x)).toMatchObject({ code: 'UNKNOWN_DEPENDENCY', message: '未知的模块：legacy。' })
     setMockMode('gen-unknown-dep')

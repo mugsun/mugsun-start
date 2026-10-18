@@ -136,7 +136,19 @@ export const preview = ref<PreviewResult | null>(null)
 export const previewState = ref<'idle' | 'loading' | 'ready' | 'error'>('idle')
 export const previewError = ref<ApiError | null>(null)
 let previewCtrl: AbortController | null = null
+/** 429（#9 并发名额等待超时）后的冷却：截止时间戳；冷却期内不发预览请求，结束后最多补发一次 */
+export const previewCooldownUntil = ref(0)
+/** 没有 Retry-After 时的冷却秒数 */
+export const PREVIEW_COOLDOWN_DEFAULT = 5
+let pendingAfterCooldown: ReturnType<typeof setTimeout> | undefined
 export async function loadPreview() {
+  const wait = previewCooldownUntil.value - Date.now()
+  if (wait > 0) {
+    // 冷却期内的表单改动合并成一次，冷却结束后再发；不会自动反复重试
+    clearTimeout(pendingAfterCooldown)
+    pendingAfterCooldown = setTimeout(() => { pendingAfterCooldown = undefined; void loadPreview() }, wait)
+    return
+  }
   previewCtrl?.abort()
   const ctrl = (previewCtrl = new AbortController())
   previewState.value = 'loading'
@@ -149,6 +161,7 @@ export async function loadPreview() {
   } catch (e) {
     if (isAbort(e) || ctrl !== previewCtrl) return
     previewError.value = e instanceof ApiError ? e : null
+    if (e instanceof ApiError && e.code === 'RATE_LIMITED') previewCooldownUntil.value = Date.now() + (e.retryAfter ?? PREVIEW_COOLDOWN_DEFAULT) * 1000
     applyServerErrors(e)
     previewState.value = 'error'
   }
@@ -156,7 +169,7 @@ export async function loadPreview() {
 
 /** 测试用：重置模块级状态 */
 export function __resetForTest() {
-  metaCtrl?.abort(); previewCtrl?.abort()
+  metaCtrl?.abort(); previewCtrl?.abort(); clearTimeout(pendingAfterCooldown); previewCooldownUntil.value = 0
   metaCtrl = previewCtrl = null
   metadata.value = null; metaState.value = 'loading'; preview.value = null; previewState.value = 'idle'
   fromShare = false; depsFromShare = false; shareKeys.clear()

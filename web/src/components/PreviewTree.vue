@@ -3,7 +3,7 @@ import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useDebounceFn, useMediaQuery } from '@vueuse/core'
 import { Folder, FolderOpened, Document, WarningFilled } from '@element-plus/icons-vue'
-import { form, metaState, preview, previewState, previewError, loadPreview, optional } from '@/lib/store'
+import { form, metaState, preview, previewState, previewError, loadPreview, optional, previewCooldownUntil } from '@/lib/store'
 import { loc } from '@/lib/l10n'
 import { formDetails } from '@/lib/fieldErrors'
 import type { PreviewNode } from '@/api'
@@ -51,7 +51,17 @@ watch(waiting, (w) => {
   clearTimeout(skTimer); showSkeleton.value = false
   if (w) skTimer = setTimeout(() => (showSkeleton.value = true), 200)
 }, { immediate: true })
-onBeforeUnmount(() => { clearTimeout(hlTimer); clearTimeout(skTimer) })
+/** 429：与生成一致显示等待秒数；冷却期内重试按钮禁用并倒计时 */
+const now = ref(Date.now())
+let tick: ReturnType<typeof setInterval> | undefined
+watch(previewCooldownUntil, (u) => {
+  clearInterval(tick); now.value = Date.now()
+  if (u > now.value) tick = setInterval(() => { now.value = Date.now(); if (now.value >= u) clearInterval(tick) }, 1000)
+}, { immediate: true })
+const retryIn = computed(() => Math.max(0, Math.ceil((previewCooldownUntil.value - now.value) / 1000)))
+const limited = computed(() => previewError.value?.code === 'RATE_LIMITED')
+const rateText = computed(() => previewError.value?.retryAfter !== undefined ? t('bar.rateLimited', { s: previewError.value.retryAfter }) : t('bar.rateLimitedNoWait'))
+onBeforeUnmount(() => { clearTimeout(hlTimer); clearTimeout(skTimer); clearInterval(tick) })
 </script>
 
 <template>
@@ -66,9 +76,9 @@ onBeforeUnmount(() => { clearTimeout(hlTimer); clearTimeout(skTimer) })
       </template>
       <div v-else-if="previewState === 'error' && !preview" class="perr" role="alert">
         <el-icon :size="28" class="err-icon" aria-hidden="true"><WarningFilled /></el-icon>
-        <span>{{ previewError?.code === 'INVALID_PARAMETER' ? (formDetails(previewError.details).length ? t('preview.invalid') : t('bar.invalidOther', { id: previewError.requestId || '-' })) : previewError?.code === 'UNSUPPORTED_OPTION' ? t('preview.unsupported') : t('preview.error') }}</span>
+        <span>{{ limited ? rateText : previewError?.code === 'INVALID_PARAMETER' ? (formDetails(previewError.details).length ? t('preview.invalid') : t('bar.invalidOther', { id: previewError.requestId || '-' })) : previewError?.code === 'UNSUPPORTED_OPTION' ? t('preview.unsupported') : t('preview.error') }}</span>
         <span v-if="previewError?.requestId && !(previewError.code === 'INVALID_PARAMETER' && !formDetails(previewError.details).length)" class="rid">{{ t('preview.requestId', { id: previewError.requestId }) }}</span>
-        <el-button size="small" @click="loadPreview()">{{ t('modules.retry') }}</el-button>
+        <el-button size="small" :disabled="retryIn > 0" @click="loadPreview()">{{ retryIn > 0 ? `${t('modules.retry')} (${retryIn}s)` : t('modules.retry') }}</el-button>
       </div>
       <el-empty v-else-if="!tree.length" :description="t('preview.empty')" :image-size="64" />
       <el-tree
@@ -89,7 +99,7 @@ onBeforeUnmount(() => { clearTimeout(hlTimer); clearTimeout(skTimer) })
       </el-tree>
     </div>
     <p v-if="preview?.truncated" class="note">{{ t('preview.truncated') }}</p>
-    <p v-else-if="previewState === 'error' && preview" class="note" role="status">{{ t('preview.stale') }}</p>
+    <p v-else-if="previewState === 'error' && preview" class="note" role="status">{{ limited ? `${t('preview.stale')} ${rateText}` : t('preview.stale') }}</p>
     <div class="sr-only" aria-live="polite">{{ live }}</div>
   </section>
 </template>

@@ -50,3 +50,17 @@ describe('generate error message', () => {
     expect(en(new Error('x'))).toBe('Generation failed. Try again later. (Error ID: -)')
   })
 })
+
+describe('406 NOT_ACCEPTABLE / 415 UNSUPPORTED_MEDIA_TYPE (#10) are generic errors', () => {
+  it('server message passes the guard and is shown with requestId', () => {
+    expect(zh(e('NOT_ACCEPTABLE', '无法按请求的格式返回结果，请接受 JSON 格式的响应。', 406))).toBe('无法按请求的格式返回结果，请接受 JSON 格式的响应。（错误编号：r-1）')
+    expect(en(e('UNSUPPORTED_MEDIA_TYPE', "This request body format isn't supported.", 415))).toBe("This request body format isn't supported. (Error ID: r-1)")
+  })
+  it('guard failures fall back to the generic text', () => {
+    for (const [code, status] of [['NOT_ACCEPTABLE', 406], ['UNSUPPORTED_MEDIA_TYPE', 415]] as const) {
+      expect(en(e(code, '无法按请求的格式返回结果。', status))).toBe('Generation failed. Try again later. (Error ID: r-1)')
+      expect(zh(e(code, 'org.springframework.web.HttpMediaTypeNotSupportedException: x', status))).toBe('生成失败，请稍后重试（错误编号：r-1）')
+      expect(zh(e(code, '', status))).toBe('生成失败，请稍后重试（错误编号：r-1）')
+    }
+  })
+})
