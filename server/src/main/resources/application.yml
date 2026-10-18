@@ -6,9 +6,17 @@ server:
 spring:
   application:
     name: mugsun-start
+  # 错误 message 的 zh/en 文案；messages.properties 为中文（缺省语言）
+  messages:
+    basename: messages
+    fallback-to-system-locale: false
   # 生成服务不碰数据库/缓存，也不需要会话
   main:
     banner-mode: off
+
+logging:
+  pattern:
+    level: "%5p [%X{requestId:-}]"
 
 management:
   endpoints:
@@ -166,6 +174,8 @@ initializr:
 # ---------------------------------------------------------------------------
 mugsun:
   start:
+    cors:
+      allowed-origins: ${MUGSUN_START_CORS_ORIGINS:https://start.mugsun.com,http://localhost:5173}
     version: 2026.10.1
     templates:
       boot: 0.1.x(tag)
