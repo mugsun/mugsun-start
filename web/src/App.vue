@@ -14,7 +14,7 @@ import ActionBar from './components/ActionBar.vue'
 import StartDrawer from './components/StartDrawer.vue'
 import { api, ApiError, isAbort } from './api'
 import { generateErrorMessage } from './lib/errors'
-import { form, scopeTypes, loadMetadata, applyQuery, toRequest, metaState, applyServerErrors, downloadCooldown, downloadError, onDownloadRateLimited } from './lib/store'
+import { form, scopeTypes, loadMetadata, applyQuery, toRequest, metaState, applyServerErrors, beginDownload, downloadError, onDownloadRateLimited } from './lib/store'
 import { toQuery } from './lib/share'
 
 const { t, locale } = useI18n()
@@ -36,8 +36,7 @@ applyQuery(location.search)
 onMounted(() => { document.documentElement.lang = locale.value; loadMetadata() })
 
 async function download() {
-  if (generating.value || metaState.value !== 'ready' || downloadCooldown.active.value) return
-  downloadError.value = null
+  if (generating.value || metaState.value !== 'ready' || !beginDownload()) return
   const bad = (await formRef.value?.validateAll()) ?? 0
   invalidCount.value = bad
   if (bad) return
@@ -50,6 +49,7 @@ async function download() {
     const a = Object.assign(document.createElement('a'), { href: url, download: r.fileName })
     a.click()
     setTimeout(() => URL.revokeObjectURL(url), 1000)
+    downloadError.value = null
     drawer.value = true
     guideAvailable.value = true
   } catch (e) {

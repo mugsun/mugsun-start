@@ -66,7 +66,14 @@ async function finish(ctx, page, width, before) {
     await btn.click()
     await page.waitForSelector('.bar .rate')
     const label = (await btn.innerText()).trim()
-    check(/^重试（[12] 秒）$/.test(label), `download-429: button counts down (${label})`)
+    check(/^下载 ZIP（[12] 秒）$/.test(label), `download-429: button keeps its name + seconds (${label})`)
+    await btn.blur(); await page.mouse.move(5, 5); await page.waitForTimeout(300)
+    check(await page.locator('.el-popper:visible:has-text("快捷键")').count() === 0, 'download-429: no shortcut tooltip while disabled')
+    const idBefore = (await page.locator('.bar .rate').innerText()).trim()
+    await page.keyboard.press('Meta+Enter'); await page.keyboard.press('Control+Enter'); await page.waitForTimeout(300)
+    const after = (await btn.innerText()).trim()
+    check((await page.locator('.bar .rate').innerText()).trim() === idBefore, 'download-429: shortcut during cooldown sends no request (same error ID)')
+    check(Number(after.match(/(\d+)/)?.[1] ?? 99) <= Number(label.match(/(\d+)/)?.[1] ?? 0), `download-429: countdown not reset by shortcut (${label} → ${after})`)
     check(await btn.isDisabled(), 'download-429: button disabled while cooling')
     const hint = (await page.locator('.bar .rate').innerText()).trim()
     check(/^请求过于频繁，请在 2 秒后重试（错误编号：.+）$/.test(hint), `download-429: hint keeps N (${hint})`)
@@ -87,5 +94,43 @@ async function finish(ctx, page, width, before) {
   } else await ctx.tracing.stop()
   await ctx.close()
 }
+// 下载 429 布局：390 提示在按钮上方单独一行、可换行无省略号、错误编号全文；两按钮仍等宽且文字不溢出。1440 英文不重叠
+async function rateLayout(width, lang) {
+  const ctx = await browser.newContext({ viewport: { width, height: 900 }, locale: lang })
+  await ctx.addInitScript((l) => localStorage.setItem('start-mugsun-locale', l), lang)
+  const page = await ctx.newPage()
+  try {
+    await page.goto(`${BASE}/?mock=download-429`)
+    await page.waitForSelector('.mod-card')
+    await page.locator('.bar .tipwrap .el-button').click()
+    await page.waitForSelector('.bar .rate')
+    return await page.evaluate(() => {
+      const r = document.querySelector('.bar .rate'); const cs = getComputedStyle(r)
+      const share = document.querySelector('.bar .btns > .el-button'); const dl = document.querySelector('.bar .tipwrap .el-button')
+      const box = (e) => e.getBoundingClientRect().toJSON()
+      const span = dl.querySelector('span')
+      return {
+        rate: box(r), share: box(share), dl: box(dl), summary: box(document.querySelector('.bar .summary')),
+        text: r.textContent, clipped: cs.textOverflow === 'ellipsis' || r.scrollWidth > r.clientWidth + 1 || r.scrollHeight > r.clientHeight + 1,
+        dlOverflow: span ? span.scrollWidth > dl.clientWidth : false, dlText: dl.textContent.trim()
+      }
+    })
+  } finally { await ctx.close() }
+}
+try {
+  const n = await rateLayout(390, 'zh-CN')
+  check(n.rate.bottom <= Math.min(n.share.top, n.dl.top) + 0.5, `390 download-429: hint above buttons (${n.rate.bottom.toFixed(0)} ≤ ${n.dl.top.toFixed(0)})`)
+  check(!n.clipped, '390 download-429: hint not truncated')
+  check(/（错误编号：01MOCK[0-9A-Z]{10}）$/.test(n.text), `390 download-429: full error ID visible (${n.text})`)
+  check(n.rate.right <= 390 && n.rate.left >= 0, '390 download-429: hint within viewport')
+  check(Math.abs(n.share.width - n.dl.width) <= 1 && Math.abs(n.dl.width - 175) <= 1, `390 download-429: buttons equal width (${n.share.width} / ${n.dl.width})`)
+  check(!n.dlOverflow, `390 download-429: button text fits (${n.dlText})`)
+  const e = await rateLayout(1440, 'en')
+  const overlap = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom
+  check(!overlap(e.rate, e.share) && !overlap(e.rate, e.dl) && !overlap(e.rate, e.summary), '1440 en download-429: hint does not overlap summary/buttons')
+  check(!e.clipped && /\(Error ID: 01MOCK[0-9A-Z]{10}\)$/.test(e.text), `1440 en download-429: full text (${e.text})`)
+  check(e.share.width < 200 && e.share.height < 44, `1440 en download-429: share keeps size (${e.share.width.toFixed(0)}x${e.share.height})`)
+  check(!e.dlOverflow, `1440 en download-429: button text fits (${e.dlText})`)
+} catch (err) { failed++; console.log('FAIL rate layout:', err.message) }
 await browser.close()
 process.exit(failed ? 1 : 0)

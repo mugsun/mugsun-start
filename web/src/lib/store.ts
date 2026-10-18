@@ -181,6 +181,14 @@ export async function loadPreview() {
 export const downloadCooldown = createCooldown()
 /** 底栏显示的下载错误（目前只有 429 走这里，其余错误仍用 ElMessage） */
 export const downloadError = ref<ApiError | null>(null)
+/** 开始一次下载（点击或快捷键）：冷却中返回 false，不发请求、不重置倒计时；否则清掉上一次的限流提示 */
+export function beginDownload(): boolean {
+  if (downloadCooldown.active.value) return false
+  downloadError.value = null
+  return true
+}
+/** 冷却结束后的「现在可以重试」提示：改表单时清掉（冷却中保留）。只改可见提示，不写 live region，不会额外播报 */
+watch(() => JSON.stringify(toRequest()), () => { if (!downloadCooldown.active.value) downloadError.value = null })
 export function onDownloadRateLimited(e: ApiError) {
   downloadError.value = e
   downloadCooldown.start(e.retryAfter)
