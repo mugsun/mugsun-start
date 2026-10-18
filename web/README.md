@@ -18,4 +18,5 @@ pnpm build
 `BASE=http://localhost:3093 OUT=<目录> pnpm shots`，按规格第 9 节输出 16 张，均标注「前端 mock 数据」。
 
 ## 品牌素材
-`public/logo.svg`、`logo-dark.svg`、`favicon.*` 取自 mugsun-docs/public。
+- 顶栏 logo：`src/components/BrandLogo.vue`，28px 方标 `src/assets/brand/mugsun-icon-dark.svg`（与 mugsun-pc#72 同源）+ Saira 实时字标 MUGSUN（`src/assets/brand/fonts/mugsun-saira-600.woff2`，OFL 许可见同目录 `LICENSE-Saira-OFL.txt`）。
+- `public/favicon.*` 取自 mugsun-docs/public/brand/web。
