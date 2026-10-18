@@ -1,10 +1,14 @@
 package com.mugsun.start.web;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeSet;
+import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -66,6 +70,45 @@ class PreviewApiTests {
 		return out;
 	}
 
+	private static List<String> dirPaths(JsonNode nodes) {
+		List<String> out = new ArrayList<>();
+		for (JsonNode n : nodes) {
+			if ("dir".equals(n.path("type").asText())) {
+				out.add(n.path("path").asText());
+			}
+			out.addAll(dirPaths(n.path("children")));
+		}
+		return out;
+	}
+
+	/** zip 里的全部目录：显式目录条目，加上每个文件的各级父目录（zip 可以不写目录条目） */
+	private static TreeSet<String> zipDirs(byte[] zip) throws Exception {
+		TreeSet<String> dirs = new TreeSet<>();
+		try (ZipInputStream in = new ZipInputStream(new ByteArrayInputStream(zip))) {
+			for (ZipEntry e = in.getNextEntry(); e != null; e = in.getNextEntry()) {
+				String name = e.getName();
+				if (e.isDirectory()) {
+					dirs.add(name.substring(0, name.length() - 1));
+				}
+				for (int i = name.indexOf('/'); i > 0 && i < name.length() - 1; i = name.indexOf('/', i + 1)) {
+					dirs.add(name.substring(0, i));
+				}
+			}
+		}
+		return dirs;
+	}
+
+	/** java.io.tmpdir 下 initializr 生成用的 project-* 临时目录 */
+	private static TreeSet<String> projectTempDirs() throws IOException {
+		Path tmp = Path.of(System.getProperty("java.io.tmpdir"));
+		try (Stream<Path> list = Files.list(tmp)) {
+			return list.filter(Files::isDirectory)
+				.map((p) -> p.getFileName().toString())
+				.filter((n) -> n.startsWith("project-"))
+				.collect(java.util.stream.Collectors.toCollection(TreeSet::new));
+		}
+	}
+
 	private static TreeSet<String> zipFiles(byte[] zip) throws Exception {
 		TreeSet<String> names = new TreeSet<>();
 		try (ZipInputStream in = new ZipInputStream(new ByteArrayInputStream(zip))) {
@@ -109,21 +152,27 @@ class PreviewApiTests {
 	}
 
 	@Test
-	@DisplayName("预览与 /starter.zip 的文件清单逐条一致（同一请求，GET 与 POST 都比）")
+	@DisplayName("预览与 /starter.zip 的文件清单和目录清单都逐条一致（同一请求，GET 与 POST 都比）")
 	void sameFilesAsZip() throws Exception {
 		MvcResult zip = perform(get("/starter.zip").param("type", "mugsun-backend").param("artifactId", "shop")
 			.param("dependencies", "gis,ai"));
 		assertThat(zip.getResponse().getStatus()).isEqualTo(200);
 		TreeSet<String> expected = zipFiles(zip.getResponse().getContentAsByteArray());
 		assertThat(expected).isNotEmpty();
+		TreeSet<String> expectedDirs = zipDirs(zip.getResponse().getContentAsByteArray());
+		assertThat(expectedDirs).isNotEmpty();
 
 		JsonNode viaGet = json(perform(get("/api/v1/preview").param("type", "mugsun-backend")
 			.param("artifactId", "shop").param("dependencies", "gis,ai")));
 		assertThat(new TreeSet<>(filePaths(viaGet.path("tree")))).isEqualTo(expected);
+		assertThat(new TreeSet<>(dirPaths(viaGet.path("tree")))).isEqualTo(expectedDirs);
+		assertThat(viaGet.path("dirCount").asInt()).isEqualTo(expectedDirs.size());
+		assertThat(viaGet.path("fileCount").asInt()).isEqualTo(expected.size());
 
 		JsonNode viaPost = json(perform(previewPost(Map.of("type", "mugsun-backend", "artifactId", "shop",
 				"dependencies", List.of("gis", "ai")))));
 		assertThat(new TreeSet<>(filePaths(viaPost.path("tree")))).isEqualTo(expected);
+		assertThat(new TreeSet<>(dirPaths(viaPost.path("tree")))).isEqualTo(expectedDirs);
 	}
 
 	@Test
@@ -217,6 +266,35 @@ class PreviewApiTests {
 			assertThat(event.getFormattedMessage()).contains("GENERATION_FAILED requestId=preview-boom-01");
 			assertThat(event.getThrowableProxy().getMessage()).contains("simulated template failure");
 		}
+	}
+
+	@Test
+	@DisplayName("生成失败时不留下 project-* 临时目录（预览 GET/POST 与 zip 都查）")
+	void generationFailureLeavesNoTempDirectory() throws Exception {
+		TreeSet<String> before = projectTempDirs();
+		assertThat(perform(previewPost(Map.of("artifactId", FailingContributorConfiguration.TRIGGER)))
+			.getResponse()
+			.getStatus()).isEqualTo(500);
+		assertThat(perform(get("/api/v1/preview").param("artifactId", FailingContributorConfiguration.TRIGGER))
+			.getResponse()
+			.getStatus()).isEqualTo(500);
+		assertThat(perform(get("/starter.zip").param("artifactId", FailingContributorConfiguration.TRIGGER))
+			.getResponse()
+			.getStatus()).isEqualTo(500);
+		TreeSet<String> leaked = projectTempDirs();
+		leaked.removeAll(before);
+		assertThat(leaked).as("生成失败后残留的临时目录").isEmpty();
+	}
+
+	@Test
+	@DisplayName("成功预览后同样不留下临时目录")
+	void successLeavesNoTempDirectory() throws Exception {
+		TreeSet<String> before = projectTempDirs();
+		assertThat(perform(get("/api/v1/preview").param("artifactId", "shop")).getResponse().getStatus())
+			.isEqualTo(200);
+		TreeSet<String> leaked = projectTempDirs();
+		leaked.removeAll(before);
+		assertThat(leaked).isEmpty();
 	}
 
 }
