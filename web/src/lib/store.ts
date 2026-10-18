@@ -141,12 +141,18 @@ export const previewCooldownUntil = ref(0)
 /** 没有 Retry-After 时的冷却秒数 */
 export const PREVIEW_COOLDOWN_DEFAULT = 5
 let pendingAfterCooldown: ReturnType<typeof setTimeout> | undefined
+/** 收到 429 的那次请求参数；冷却结束时只有参数变了（冷却期间改过表单）才自动补发 */
+let limitedKey: string | null = null
+const requestKey = () => JSON.stringify(toRequest())
 export async function loadPreview() {
   const wait = previewCooldownUntil.value - Date.now()
   if (wait > 0) {
-    // 冷却期内的表单改动合并成一次，冷却结束后再发；不会自动反复重试
+    // 冷却期内的调用合并成一个定时器；到点时参数没变（没改表单）就不发，等用户点「重试」
     clearTimeout(pendingAfterCooldown)
-    pendingAfterCooldown = setTimeout(() => { pendingAfterCooldown = undefined; void loadPreview() }, wait)
+    pendingAfterCooldown = setTimeout(() => {
+      pendingAfterCooldown = undefined
+      if (requestKey() !== limitedKey) void loadPreview()
+    }, wait)
     return
   }
   previewCtrl?.abort()
@@ -161,7 +167,10 @@ export async function loadPreview() {
   } catch (e) {
     if (isAbort(e) || ctrl !== previewCtrl) return
     previewError.value = e instanceof ApiError ? e : null
-    if (e instanceof ApiError && e.code === 'RATE_LIMITED') previewCooldownUntil.value = Date.now() + (e.retryAfter ?? PREVIEW_COOLDOWN_DEFAULT) * 1000
+    if (e instanceof ApiError && e.code === 'RATE_LIMITED') {
+      limitedKey = requestKey()
+      previewCooldownUntil.value = Date.now() + (e.retryAfter ?? PREVIEW_COOLDOWN_DEFAULT) * 1000
+    }
     applyServerErrors(e)
     previewState.value = 'error'
   }

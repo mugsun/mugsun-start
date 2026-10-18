@@ -171,13 +171,25 @@ describe('preview 429 (#9): wait seconds, no retry storm', () => {
       expect(s.previewError.value?.retryAfter).toBe(1)
       expect(s.previewCooldownUntil.value).toBeGreaterThan(Date.now())
       spy.mockResolvedValue({ requestId: 'r2', root: 'demo', fileCount: 0, dirCount: 0, truncated: false, tree: [] })
-      await s.loadPreview(); await s.loadPreview(); await s.loadPreview()
+      s.form.artifactId = 'x1'; await s.loadPreview()
+      s.form.artifactId = 'x2'; await s.loadPreview()
+      s.form.artifactId = 'x3'; await s.loadPreview()
       expect(spy).toHaveBeenCalledTimes(1)
       await vi.advanceTimersByTimeAsync(1000)
       expect(spy).toHaveBeenCalledTimes(2)
       await vi.advanceTimersByTimeAsync(10_000)
       expect(spy).toHaveBeenCalledTimes(2)
       expect(s.previewState.value).toBe('ready')
+    } finally { vi.useRealTimers() }
+  })
+  it('calls during cooldown without a form change send nothing when it ends', async () => {
+    vi.useFakeTimers()
+    try {
+      const spy = vi.spyOn(api, 'preview').mockRejectedValueOnce(new ApiError(429, 'RATE_LIMITED', 'x', 'r', [], 1))
+      await s.loadPreview()
+      await s.loadPreview(); await s.loadPreview()
+      await vi.advanceTimersByTimeAsync(5000)
+      expect(spy).toHaveBeenCalledTimes(1)
     } finally { vi.useRealTimers() }
   })
   it('without Retry-After uses the default cooldown', async () => {

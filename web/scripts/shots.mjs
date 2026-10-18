@@ -125,10 +125,21 @@ await run('21-1440-gen-stack', { query: '?mock=gen-stack' }, async (p) => {
   await ready(p); await p.click('.el-button--primary:has-text("下载 ZIP")'); await p.waitForSelector('.el-message--error'); await p.mouse.move(5, 300); await p.waitForTimeout(400)
   await contrast(p, '.el-message--error .el-message__content')
 }, { full: false })
-await run('22-1440-preview-429', { query: '?mock=preview-429' }, async (p) => {
-  await p.waitForSelector('.perr'); await p.waitForTimeout(1200)
+async function preview429(p, waitEnd = false) {
+  await p.waitForSelector('.perr button'); await p.locator('.preview').scrollIntoViewIfNeeded()
+  await p.evaluate(() => { const r = document.querySelector('.preview').getBoundingClientRect(); window.scrollBy(0, r.top - 80) })
+  if (waitEnd) await p.waitForFunction(() => !document.querySelector('.perr button').disabled, null, { timeout: 10000 })
+  else await p.waitForTimeout(1300)
+  // 首次访问时 vite 可能因依赖预构建整页重载，滚动位置会丢：截图前再对齐一次
+  await p.evaluate(() => { const r = document.querySelector('.preview').getBoundingClientRect(); window.scrollBy(0, r.top - 80) })
+  await p.mouse.move(5, 5)
+  console.log('panel:', (await p.locator('.perr').innerText()).replace(/\n+/g, ' | '), '| live:', await p.locator('.preview [aria-live]').innerText())
   await contrast(p, '.perr span')
-}, { full: false })
+}
+await run('22-1440-preview-429', { query: '?mock=preview-429' }, (p) => preview429(p), { full: false })
+await run('22b-1440-preview-429-dark', { dark: true, query: '?mock=preview-429' }, (p) => preview429(p), { full: false })
+await run('22c-1440-preview-429-en', { lang: 'en', query: '?mock=preview-429' }, (p) => preview429(p), { full: false })
+await run('22d-1440-preview-429-ended', { query: '?mock=preview-429-short' }, (p) => preview429(p, true), { full: false })
 await run('23-1440-derive-hyphen', {}, async (p) => {
   await ready(p); await p.fill('#f-artifactId', 'shop-admin'); await p.locator('#f-artifactId').blur(); await p.waitForTimeout(800)
   console.log('packageName =', await p.inputValue('#f-packageName'))

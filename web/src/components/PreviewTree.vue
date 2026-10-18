@@ -51,13 +51,21 @@ watch(waiting, (w) => {
   clearTimeout(skTimer); showSkeleton.value = false
   if (w) skTimer = setTimeout(() => (showSkeleton.value = true), 200)
 }, { immediate: true })
-/** 429：与生成一致显示等待秒数；冷却期内重试按钮禁用并倒计时 */
+/**
+ * 429：文案里的秒数取收到 429 时的 Retry-After，之后不变；只有按钮读秒（按钮不在 live region 里）。
+ * 屏幕阅读器：收到 429 时播报一次文案，冷却结束时播报一次「可以重试」，倒计时不播报。
+ */
 const now = ref(Date.now())
 let tick: ReturnType<typeof setInterval> | undefined
 watch(previewCooldownUntil, (u) => {
   clearInterval(tick); now.value = Date.now()
-  if (u > now.value) tick = setInterval(() => { now.value = Date.now(); if (now.value >= u) clearInterval(tick) }, 1000)
-}, { immediate: true })
+  if (u <= now.value) return
+  live.value = rateText.value
+  tick = setInterval(() => {
+    now.value = Date.now()
+    if (now.value >= u) { clearInterval(tick); live.value = t('preview.canRetry') }
+  }, 250)
+})
 const retryIn = computed(() => Math.max(0, Math.ceil((previewCooldownUntil.value - now.value) / 1000)))
 const limited = computed(() => previewError.value?.code === 'RATE_LIMITED')
 const rateText = computed(() => previewError.value?.retryAfter !== undefined ? t('bar.rateLimited', { s: previewError.value.retryAfter }) : t('bar.rateLimitedNoWait'))
@@ -74,11 +82,11 @@ onBeforeUnmount(() => { clearTimeout(hlTimer); clearTimeout(skTimer); clearInter
       <template v-if="waiting">
         <el-skeleton v-if="showSkeleton" :rows="3" animated />
       </template>
-      <div v-else-if="previewState === 'error' && !preview" class="perr" role="alert">
+      <div v-else-if="previewState === 'error' && !preview" class="perr" :role="limited ? undefined : 'alert'">
         <el-icon :size="28" class="err-icon" aria-hidden="true"><WarningFilled /></el-icon>
         <span>{{ limited ? rateText : previewError?.code === 'INVALID_PARAMETER' ? (formDetails(previewError.details).length ? t('preview.invalid') : t('bar.invalidOther', { id: previewError.requestId || '-' })) : previewError?.code === 'UNSUPPORTED_OPTION' ? t('preview.unsupported') : t('preview.error') }}</span>
         <span v-if="previewError?.requestId && !(previewError.code === 'INVALID_PARAMETER' && !formDetails(previewError.details).length)" class="rid">{{ t('preview.requestId', { id: previewError.requestId }) }}</span>
-        <el-button size="small" :disabled="retryIn > 0" @click="loadPreview()">{{ retryIn > 0 ? `${t('modules.retry')} (${retryIn}s)` : t('modules.retry') }}</el-button>
+        <el-button size="small" :disabled="retryIn > 0" @click="loadPreview()">{{ retryIn > 0 ? t('preview.retryIn', { s: retryIn }) : t('modules.retry') }}</el-button>
       </div>
       <el-empty v-else-if="!tree.length" :description="t('preview.empty')" :image-size="64" />
       <el-tree
@@ -99,7 +107,7 @@ onBeforeUnmount(() => { clearTimeout(hlTimer); clearTimeout(skTimer); clearInter
       </el-tree>
     </div>
     <p v-if="preview?.truncated" class="note">{{ t('preview.truncated') }}</p>
-    <p v-else-if="previewState === 'error' && preview" class="note" role="status">{{ limited ? `${t('preview.stale')} ${rateText}` : t('preview.stale') }}</p>
+    <p v-else-if="previewState === 'error' && preview" class="note" :role="limited ? undefined : 'status'">{{ limited ? `${t('preview.stale')} ${rateText}` : t('preview.stale') }}</p>
     <div class="sr-only" aria-live="polite">{{ live }}</div>
   </section>
 </template>

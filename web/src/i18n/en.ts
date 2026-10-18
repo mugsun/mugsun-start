@@ -26,7 +26,7 @@ const en: typeof zh = {
     notApplicable: 'This module does not apply to the selected generation scope.',
     loadError: 'The module list could not be loaded. Check your network connection and try again.', retry: 'Retry'
   },
-  preview: { unsupported: 'The request contains an option that is not supported yet. Refresh the page.', invalid: 'Some project details are invalid. The preview updates once they are corrected.', error: 'The preview could not be loaded. Try again later.', requestId: 'Error ID: {id}', fromModule: 'From module: {m}', truncated: 'Some directories only show item counts because the project has many files.', stale: 'The preview could not be updated. The previous result is shown.', title: 'Project structure', files: '{n} files', empty: 'There are no files to preview', updated: 'Project structure updated, {n} files' },
+  preview: { unsupported: 'The request contains an option that is not supported yet. Refresh the page.', invalid: 'Some project details are invalid. The preview updates once they are corrected.', error: 'The preview could not be loaded. Try again later.', requestId: 'Error ID: {id}', fromModule: 'From module: {m}', truncated: 'Some directories only show item counts because the project has many files.', stale: 'The preview could not be updated. The previous result is shown.', title: 'Project structure', files: '{n} files', empty: 'There are no files to preview', updated: 'Project structure updated, {n} files', retryIn: 'Retry ({s}s)', canRetry: 'You can retry now' },
   bar: {
     summary: '{scope} · {n} optional modules selected · {pkg}',
     share: 'Copy share link', shared: 'Share link copied', download: 'Download ZIP', generating: 'Generating…',

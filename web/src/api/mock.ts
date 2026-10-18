@@ -17,6 +17,7 @@
  *   preview-body-invalid 预览返回 400 INVALID_PARAMETER，details [{field:"body",reason:"invalid"}]（#5：JSON 解析失败）
  *   gen-406 / gen-415 生成返回 406 NOT_ACCEPTABLE / 415 UNSUPPORTED_MEDIA_TYPE（#10）
  *   preview-429   预览返回 429 RATE_LIMITED，Retry-After: 30（#9 并发名额等待超时）
+ *   preview-429-short 同上，Retry-After: 2（看倒计时结束）
  *   preview-modules 预览节点带 module（S4 计划字段，#5 不返回；默认不带）
  *   请求里出现非默认的 bootVersion/javaVersion/packaging/language/configurationFileFormat 也返回 UNSUPPORTED_OPTION
  */
@@ -303,7 +304,7 @@ export async function mockFetch(url: string, init?: RequestInit): Promise<Respon
   if (path === '/api/v1/preview') {
     await wait(120, signal)
     if (mode === 'preview-error') return problemResponse(500, 'GENERATION_FAILED', [], lang, id)
-    if (mode === 'preview-429') return problemResponse(429, 'RATE_LIMITED', [], lang, id, { 'Retry-After': '30' })
+    if (mode === 'preview-429' || mode === 'preview-429-short') return problemResponse(429, 'RATE_LIMITED', [], lang, id, { 'Retry-After': mode === 'preview-429' ? '30' : '2' })
     if (mode === 'preview-body-invalid') return problemResponse(400, 'INVALID_PARAMETER', [{ field: 'body', reason: 'invalid' }], lang, id)
     const req = readRequest(init)
     const bad = serverCheck(req, lang, id)
