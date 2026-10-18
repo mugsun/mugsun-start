@@ -13,6 +13,7 @@ import PreviewTree from './components/PreviewTree.vue'
 import ActionBar from './components/ActionBar.vue'
 import StartDrawer from './components/StartDrawer.vue'
 import { api, ApiError, isAbort } from './api'
+import { generateErrorMessage } from './lib/errors'
 import { form, scopeTypes, loadMetadata, applyQuery, toRequest, metaState, applyServerErrors } from './lib/store'
 import { toQuery } from './lib/share'
 
@@ -42,9 +43,8 @@ async function download() {
   generating.value = true
   slow.value = false
   const slowTimer = setTimeout(() => (slow.value = true), 10_000)
-  genCtrl = new AbortController()
   try {
-    const r = await api.generate(toRequest(), { locale: locale.value, signal: genCtrl.signal })
+    const r = await api.generate(toRequest(), { locale: locale.value })
     const url = URL.createObjectURL(r.blob)
     const a = Object.assign(document.createElement('a'), { href: url, download: r.fileName })
     a.click()
@@ -61,9 +61,7 @@ async function download() {
   }
 }
 
-let genCtrl: AbortController | null = null
-
-/** §4.4：字段错误回填表单；429 提示等待时间；其余给出错误编号 */
+/** §4.4：能映射的字段错误回填表单；其余见 lib/errors.ts */
 function handleGenerateError(e: unknown) {
   const err = e instanceof ApiError ? e : null
   const n = applyServerErrors(err)
@@ -72,12 +70,7 @@ function handleGenerateError(e: unknown) {
     formRef.value?.focusFirstServerError()
     return
   }
-  const id = err?.requestId || '-'
-  const message = err?.code === 'RATE_LIMITED'
-    ? (err.retryAfter !== undefined ? t('bar.rateLimited', { s: err.retryAfter }) : t('bar.rateLimitedNoWait'))
-    : err?.code === 'TIMEOUT' ? t('bar.timeout')
-    : err?.code === 'UNSUPPORTED_OPTION' ? t('bar.unsupported', { id })
-    : t('bar.failed', { id })
+  const message = generateErrorMessage(err, t)
   ElMessage({ type: 'error', message, duration: 6000, showClose: true })
 }
 

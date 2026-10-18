@@ -20,7 +20,7 @@ export default {
     }
   },
   modules: {
-    title: '模块', alwaysOn: '常驻模块', optional: '可选模块', included: '已包含', docs: '文档', docsAria: '{name}文档（在新窗口打开）',
+    title: '模块', showAll: '展开全部（共 {n} 个）', showLess: '收起', alwaysOn: '常驻模块', optional: '可选模块', included: '已包含', docs: '文档', docsAria: '{name}文档（在新窗口打开）',
     notApplicable: '当前生成范围不适用此模块。',
     loadError: '模块列表加载失败，请检查网络后重试。', retry: '重试'
   },
@@ -33,6 +33,9 @@ export default {
     disabledMeta: '模块列表加载失败，暂时无法生成',
     invalid: '有 {n} 项信息需要修改',
     rateLimited: '请求过于频繁，请在 {s} 秒后重试',
+    serverMessage: '{msg}（错误编号：{id}）',
+    unknownDependency: '包含不存在的模块，请刷新页面后重试（错误编号：{id}）',
+    invalidOther: '请求参数有误，请刷新页面后重试（错误编号：{id}）',
     unsupported: '请求包含一期不支持的选项，请刷新页面后重试（错误编号：{id}）',
     rateLimitedNoWait: '请求过于频繁，请稍后重试',
     timeout: '生成超时，请稍后重试',

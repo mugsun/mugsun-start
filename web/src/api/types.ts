@@ -52,7 +52,7 @@ export interface OptionalModule {
   notes?: { backendOnly?: L10n }
   links?: { reference?: string }
   maven?: { groupId: string; artifactId: string }
-  pc?: { dir: string; npmRemove: string[] }
+  pc?: { dir: string; npmRemove?: string[] }
 }
 
 export interface PostGenerate {

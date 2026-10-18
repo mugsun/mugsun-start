@@ -1,0 +1,47 @@
+{
+  "version": "2026.11.0-fixture",
+  "templates": { "boot": "fixture-boot", "pc": "fixture-pc" },
+  "types": [
+    { "id": "mugsun-backend", "name": { "zh": "只要后端", "en": "Server only" },
+      "description": { "zh": "夹具：后端说明", "en": "Fixture: backend" }, "action": "/starter.zip",
+      "tags": { "build": "maven", "format": "project", "scope": "backend" }, "default": true },
+    { "id": "mugsun-fullstack", "name": { "zh": "全栈", "en": "Everything" },
+      "description": { "zh": "夹具：全栈说明", "en": "Fixture: full stack" }, "action": "/starter.zip",
+      "tags": { "build": "maven", "format": "project", "scope": "fullstack" } }
+  ],
+  "fields": {
+    "groupId":     { "default": "org.acme", "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$", "required": true },
+    "artifactId":  { "default": "shop", "pattern": "^[a-z][a-z0-9-]*$", "maxLength": 30, "required": true },
+    "name":        { "default": "shop", "maxLength": 30, "required": true, "follows": "artifactId" },
+    "packageName": { "default": "org.acme.shop", "pattern": "^[a-z_][a-z0-9_]*(\\.[a-z_][a-z0-9_]*)*$", "follows": "groupId+artifactId" },
+    "description": { "default": { "zh": "Acme 商城后台", "en": "Acme shop admin" }, "maxLength": 120 },
+    "version":     { "default": "1.0.0" }
+  },
+  "bootVersion": { "default": "3.5.13", "values": [{ "id": "3.5.13", "name": "3.5.13" }], "readOnly": true },
+  "javaVersion": { "default": "21", "values": [{ "id": "21", "name": "21" }], "readOnly": true },
+  "packaging":   { "default": "jar", "values": [{ "id": "jar", "name": "Jar" }], "readOnly": true },
+  "database":    { "default": "postgresql", "values": [{ "id": "postgresql", "name": "PostgreSQL" }], "readOnly": true,
+                   "note": { "zh": "夹具：仅 PG", "en": "Fixture: PG only" } },
+  "modules": {
+    "alwaysOn": [
+      { "id": "core-system", "icon": "system", "name": { "zh": "系统", "en": "System" },
+        "description": { "zh": "夹具", "en": "Fixture" }, "removableIn": null },
+      { "id": "core-workflow", "icon": "flow", "name": { "zh": "流程", "en": "Flow" },
+        "description": { "zh": "夹具", "en": "Fixture" }, "removableIn": "phase-2" }
+    ],
+    "optional": [
+      { "id": "gis", "group": "geo", "icon": "map", "name": { "zh": "地图", "en": "Maps" },
+        "description": { "zh": "夹具", "en": "Fixture" }, "default": false,
+        "appliesTo": ["mugsun-backend", "mugsun-fullstack"], "requires": [], "conflicts": [],
+        "links": { "reference": "https://example.test/gis" } },
+      { "id": "ai", "group": "ai", "icon": "ai", "name": { "zh": "智能", "en": "AI" },
+        "description": { "zh": "夹具", "en": "Fixture" }, "default": true,
+        "appliesTo": ["mugsun-backend", "mugsun-fullstack"], "requires": [], "conflicts": [] }
+    ]
+  },
+  "postGenerate": {
+    "requirements": { "mugsun-backend": ["JDK 21"], "mugsun-fullstack": ["JDK 21", "Node 22"] },
+    "commands": { "mugsun-backend": ["cd {artifactId}"], "mugsun-fullstack": ["cd {artifactId}", "cd {artifactId}-pc"] },
+    "docs": "https://example.test/docs"
+  }
+}

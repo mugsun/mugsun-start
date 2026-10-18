@@ -78,6 +78,16 @@ describe('mock via http api', () => {
     setMockMode('gen-unsupported')
     expect(await api.generate(base, { locale: 'en' }).catch((x) => x)).toMatchObject({ code: 'UNSUPPORTED_OPTION' })
   })
+  it('UNKNOWN_DEPENDENCY and an INVALID_PARAMETER field outside the form', async () => {
+    expect(await api.generate({ ...base, dependencies: ['legacy'] }, { locale: 'zh-CN' }).catch((x) => x)).toMatchObject({ code: 'UNKNOWN_DEPENDENCY', message: '模块 legacy 不存在。' })
+    setMockMode('gen-unknown-dep')
+    expect(await api.generate(base, { locale: 'en' }).catch((x) => x)).toMatchObject({ code: 'UNKNOWN_DEPENDENCY' })
+    setMockMode('gen-invalid-other')
+    const e = await api.generate(base, { locale: 'en' }).catch((x) => x)
+    expect(e.code).toBe('INVALID_PARAMETER')
+    expect(e.details[0].field).toBe('baseDir')
+    expect(e.message).toContain('baseDir')
+  })
   it('scenarios', async () => {
     setMockMode('gen-429')
     expect(await api.generate(base, { locale: 'en' }).catch((x) => x)).toMatchObject({ status: 429, code: 'RATE_LIMITED', retryAfter: 30 })

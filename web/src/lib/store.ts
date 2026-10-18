@@ -58,11 +58,15 @@ export function restorePackage() {
 }
 
 let fromShare = false
+/** 分享链接里带了的字段，metadata 回来后不覆盖 */
+const shareKeys = new Set<string>()
+const DEFAULTED = ['groupId', 'artifactId', 'name', 'packageName', 'description'] as const
 let depsFromShare = false
 export function applyQuery(search: string) {
   const q = fromQuery(search, { fields: fields.value, allowedTypes: FALLBACK_TYPES.map((t) => t.id) })
   if (Object.keys(q).length === 0) return
   if (q.type) fromShare = true
+  for (const k of Object.keys(q)) shareKeys.add(k)
   if (q.dependencies !== undefined) depsFromShare = true
   Object.assign(form, q)
   if (q.packageName !== undefined) manual.packageName = q.packageName !== derivePackage(form.groupId, form.artifactId)
@@ -79,9 +83,11 @@ export async function loadMetadata() {
   try {
     const m = await api.getMetadata({ locale: locale(), signal: ctrl.signal })
     if (ctrl !== metaCtrl) return
+    // 还停在兜底默认值、且不是来自分享链接/手动修改的字段，换成接口下发的默认值
+    const pristine = DEFAULTED.filter((f) => !shareKeys.has(f) && !(f in manual && manual[f as keyof typeof manual]) && form[f] === fieldDefault(f))
     metadata.value = m
     if (!fromShare) form.type = defaultType(m.types)
-    if (!manual.description) form.description = fieldDefault('description')
+    for (const f of pristine) form[f] = fieldDefault(f)
     const known = new Set(m.modules.optional.map((d) => d.id))
     // 分享链接带了 dependencies 就以链接为准；否则按 optional[].default 预勾选
     form.dependencies = depsFromShare
@@ -146,7 +152,7 @@ export function __resetForTest() {
   metaCtrl?.abort(); previewCtrl?.abort()
   metaCtrl = previewCtrl = null
   metadata.value = null; metaState.value = 'loading'; preview.value = null; previewState.value = 'idle'
-  fromShare = false; depsFromShare = false
+  fromShare = false; depsFromShare = false; shareKeys.clear()
   Object.assign(manual, { name: false, packageName: false, description: false })
   Object.assign(form, { type: FULLSTACK, groupId: 'com.example', artifactId: 'demo', name: 'demo', packageName: 'com.example.demo', description: fieldDefault('description'), dependencies: [] })
   for (const k of Object.keys(serverErrors)) delete serverErrors[k as FieldName]

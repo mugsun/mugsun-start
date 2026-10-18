@@ -10,6 +10,8 @@
  *   gen-429       生成返回 429 RATE_LIMITED，Retry-After: 30
  *   gen-invalid   生成返回 400 INVALID_PARAMETER（groupId 与 packageName）
  *   gen-unsupported 生成返回 400 UNSUPPORTED_OPTION
+ *   gen-unknown-dep 生成返回 400 UNKNOWN_DEPENDENCY
+ *   gen-invalid-other 生成返回 400 INVALID_PARAMETER，但 field 不在表单里（baseDir）
  *   请求里出现非默认的 bootVersion/javaVersion/packaging/language/configurationFileFormat 也返回 UNSUPPORTED_OPTION
  */
 import { isReservedSegment } from '../lib/validate'
@@ -37,7 +39,7 @@ const fields: Fields = {
   version: { default: '0.0.1-SNAPSHOT' }
 }
 
-const pcRemove: Record<string, string[]> = { gis: ['ol', 'cesium', 'gcoord'], track: ['@mugsun/track-web', 'rrweb-player'], ai: ['vue-element-plus-x', '@vue-flow/core'] }
+const pcRemove: Record<string, string[]> = { gis: ['ol', 'cesium', 'gcoord'], track: ['@mugsun/track-web', 'rrweb-player'] }  // ai 的 npmRemove 待 S2 定稿，mock 不编造
 
 export function buildMockMetadata(): Metadata {
   const opt = (id: string, group: string, icon: string, name: L10n, description: L10n, backendOnly: L10n) => ({
@@ -190,7 +192,7 @@ const FAILED = l('生成失败，请稍后重试。', 'Generation failed. Try ag
 function readRequest(init?: RequestInit): ProjectRequest {
   const body = init?.body
   if (typeof body !== 'string') return {} as ProjectRequest
-  if (body.trim().startsWith('{')) return JSON.parse(body) as ProjectRequest
+  if (body.trim().startsWith('{')) { const j = JSON.parse(body) as ProjectRequest; return { ...j, dependencies: j.dependencies ?? [] } }
   const q = new URLSearchParams(body)
   const o: Record<string, unknown> = Object.fromEntries(q)
   o.dependencies = (q.get('dependencies') ?? '').split(',').filter(Boolean)
@@ -233,6 +235,11 @@ export async function mockFetch(url: string, init?: RequestInit): Promise<Respon
     if (mode === 'gen-fail') return err(500, 'GENERATION_FAILED', FAILED, lang, id)
     if (mode === 'gen-429') return err(429, 'RATE_LIMITED', l('请求过于频繁。', 'Too many requests.'), lang, id, [], { 'Retry-After': '30' })
     const req = readRequest(init)
+    if (mode === 'gen-unknown-dep') return err(400, 'UNKNOWN_DEPENDENCY', l('模块 legacy-report 不存在。', 'Module legacy-report does not exist.'), lang, id, [{ field: 'dependencies', message: 'legacy-report' }])
+    if (mode === 'gen-invalid-other') return err(400, 'INVALID_PARAMETER', l('baseDir 只能包含字母、数字、点、下划线和连字符。', 'baseDir can only contain letters, digits, dots, underscores and hyphens.'), lang, id, [{ field: 'baseDir', message: 'pattern' }])
+    const known = new Set(buildMockMetadata().modules.optional.map((d) => d.id))
+    const unknown = req.dependencies.filter((d) => !known.has(d))
+    if (unknown.length) return err(400, 'UNKNOWN_DEPENDENCY', l(`模块 ${unknown.join(', ')} 不存在。`, `Module ${unknown.join(', ')} does not exist.`), lang, id, unknown.map((d) => ({ field: 'dependencies', message: d })))
     const unsupported = mode === 'gen-unsupported' ? [{ field: 'bootVersion', message: 'bootVersion 一期只接受 3.5.13' }] : unsupportedOptions(req)
     if (unsupported.length) return err(400, 'UNSUPPORTED_OPTION', UNSUPPORTED, lang, id, unsupported)
     const details = mode === 'gen-invalid'

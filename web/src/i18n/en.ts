@@ -22,7 +22,7 @@ const en: typeof zh = {
     }
   },
   modules: {
-    title: 'Modules', alwaysOn: 'Included modules', optional: 'Optional modules', included: 'Included', docs: 'Docs', docsAria: '{name} documentation (opens in a new window)',
+    title: 'Modules', showAll: 'Show all ({n})', showLess: 'Show less', alwaysOn: 'Included modules', optional: 'Optional modules', included: 'Included', docs: 'Docs', docsAria: '{name} documentation (opens in a new window)',
     notApplicable: 'This module does not apply to the selected generation scope.',
     loadError: 'The module list could not be loaded. Check your network connection and try again.', retry: 'Retry'
   },
@@ -35,6 +35,9 @@ const en: typeof zh = {
     disabledMeta: 'Generation is unavailable because the module list could not be loaded',
     invalid: '{n} fields need to be corrected',
     rateLimited: 'Too many requests. Try again in {s} seconds.',
+    serverMessage: '{msg} (Error ID: {id})',
+    unknownDependency: 'The request contains a module that does not exist. Refresh the page and try again. (Error ID: {id})',
+    invalidOther: 'The request is invalid. Refresh the page and try again. (Error ID: {id})',
     unsupported: 'The request contains an option that is not supported yet. Refresh the page and try again. (Error ID: {id})',
     rateLimitedNoWait: 'Too many requests. Try again later.',
     timeout: 'Generation timed out. Try again later.',
