@@ -17,6 +17,7 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mugsun.testsupport.FailingContributorConfiguration;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -43,6 +44,15 @@ class PreviewApiTests {
 
 	@Autowired
 	private MockMvc mvc;
+
+	@Autowired
+	private PreviewGuard guard;
+
+	/** 每个用例都真实生成，不吃上一个用例的缓存（缓存行为见 PreviewGuardApiTests） */
+	@BeforeEach
+	void clearPreviewCache() {
+		this.guard.invalidateAll();
+	}
 
 	private final ObjectMapper om = new ObjectMapper();
 
@@ -179,6 +189,7 @@ class PreviewApiTests {
 	@DisplayName("目录在前，同类按名称升序；path 稳定（两次请求相同）")
 	void orderingAndStablePaths() throws Exception {
 		JsonNode a = json(perform(get("/api/v1/preview").param("artifactId", "shop")));
+		this.guard.invalidateAll();
 		JsonNode b = json(perform(get("/api/v1/preview").param("artifactId", "shop")));
 		assertThat(filePaths(a.path("tree"))).isEqualTo(filePaths(b.path("tree")));
 		assertOrdered(a.path("tree"));
