@@ -116,12 +116,15 @@ export interface PreviewResult {
 export interface GenerateResult { blob: Blob; fileName: string; requestId: string }
 
 /** §4.4 错误体 */
-export interface ErrorDetail { field: string; message: string }
+/** §4.4 / PR #4：reason 为稳定机器码，message 已按 Accept-Language 本地化 */
+export type ErrorReason = 'required' | 'pattern' | 'maxLength' | 'keyword' | 'unsupported' | 'unknown' | 'notApplicable' | 'requires' | 'conflicts' | 'invalid'
+export interface ErrorDetail { field: string; reason?: ErrorReason | string; message?: string }
 export interface ErrorBody { code: string; message: string; requestId?: string; timestamp?: string; details?: ErrorDetail[] }
 
 export type ErrorCode =
   | 'INVALID_PARAMETER' | 'UNKNOWN_DEPENDENCY' | 'UNSUPPORTED_OPTION' | 'DEPENDENCY_NOT_APPLICABLE'
-  | 'DEPENDENCY_CONFLICT' | 'DEPENDENCY_REQUIRES' | 'RATE_LIMITED' | 'GENERATION_FAILED' | 'TEMPLATE_UNAVAILABLE'
+  | 'DEPENDENCY_CONFLICT' | 'DEPENDENCY_REQUIRES' | 'NOT_FOUND' | 'METHOD_NOT_ALLOWED' | 'RATE_LIMITED'
+  | 'GENERATION_FAILED' | 'INTERNAL_ERROR' | 'TEMPLATE_UNAVAILABLE'
   /** 以下为前端自定义 */
   | 'TIMEOUT' | 'NETWORK' | 'BAD_RESPONSE' | (string & {})
 

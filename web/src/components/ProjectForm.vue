@@ -1,9 +1,10 @@
 <script setup lang="ts">
+import { FIELD_ERROR_KEYS } from '@/lib/fieldErrors'
 import { ref, reactive, computed, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { FormInstance, FormRules, FormItemProp } from 'element-plus'
 import { form, manual, restorePackage, metadata, fields, serverErrors } from '@/lib/store'
-import { checkField, type FieldError } from '@/lib/validate'
+import { checkField } from '@/lib/validate'
 import { loc } from '@/lib/l10n'
 import type { FieldName } from '@/api'
 
@@ -12,13 +13,7 @@ const formRef = ref<FormInstance>()
 const errors = reactive<Record<string, boolean>>({})
 
 /** 校验规则来自 metadata.fields（失败时用兜底），文案仍走前端 i18n */
-const MSG: Record<string, Partial<Record<Exclude<FieldError, null>, string>>> = {
-  groupId: { required: 'form.err.groupRequired', pattern: 'form.err.group', maxLength: 'form.err.group' },
-  artifactId: { required: 'form.err.artifactRequired', pattern: 'form.err.artifact', maxLength: 'form.err.artifact' },
-  name: { required: 'form.err.nameRequired', maxLength: 'form.err.name', pattern: 'form.err.name' },
-  packageName: { required: 'form.err.packageRequired', pattern: 'form.err.packageName', keyword: 'form.err.packageName', maxLength: 'form.err.packageName' },
-  description: { maxLength: 'form.err.description', pattern: 'form.err.description' }
-}
+const MSG = FIELD_ERROR_KEYS
 const rule = (f: FieldName) => ({
   trigger: 'blur',
   validator: (_r: unknown, v: string, cb: (e?: Error) => void) => {

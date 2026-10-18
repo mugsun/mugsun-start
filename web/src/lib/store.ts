@@ -6,6 +6,7 @@ import { fromQuery } from './share'
 import { resolveScopeTypes, defaultType, FULLSTACK } from './scope'
 import { FALLBACK_FIELDS, FALLBACK_POSTGEN, FALLBACK_TYPES } from './defaults'
 import { loc } from './l10n'
+import { fieldErrorKey } from './fieldErrors'
 import { i18n } from '@/i18n'
 
 export { FULLSTACK, BACKEND } from './scope'
@@ -120,7 +121,11 @@ export const FORM_FIELDS: readonly FieldName[] = ['groupId', 'artifactId', 'name
 export function applyServerErrors(e: unknown): number {
   if (!(e instanceof ApiError) || e.code !== 'INVALID_PARAMETER') return 0
   const mapped = e.details.filter((d) => FORM_FIELDS.includes(d.field as FieldName))
-  for (const d of mapped) serverErrors[d.field as FieldName] = d.message
+  // 优先服务端 message（已本地化）；没有再按 reason 走前端文案
+  for (const d of mapped) {
+    const key = fieldErrorKey(d.field, d.reason)
+    serverErrors[d.field as FieldName] = d.message?.trim() || (key ? String(i18n.global.t(key)) : d.reason ?? '')
+  }
   return mapped.length
 }
 

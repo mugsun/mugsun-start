@@ -4,6 +4,7 @@ import { api } from '@/api'
 import { buildMockMetadata } from '@/api/mock'
 import * as s from './store'
 import { ApiError } from '@/api'
+import { i18n } from '@/i18n'
 
 const settle = async () => { for (let i = 0; i < 5; i++) await Promise.resolve(); await nextTick() }
 
@@ -126,5 +127,20 @@ describe('server field errors', () => {
     expect(s.applyServerErrors(new ApiError(400, 'UNSUPPORTED_OPTION', 'm', 'r', [{ field: 'packageName', message: 'x' }]))).toBe(0)
     expect(s.serverErrors.packageName).toBeUndefined()
     expect(s.applyServerErrors(invalid(['packageName']))).toBe(1)
+  })
+})
+
+describe('details {field, reason, message} (PR #4)', () => {
+  const inv = (details: { field: string; reason?: string; message?: string }[]) => new ApiError(400, 'INVALID_PARAMETER', '', 'r', details)
+  it('server message wins over reason', () => {
+    s.applyServerErrors(inv([{ field: 'groupId', reason: 'pattern', message: '服务端的 Group 文案' }]))
+    expect(s.serverErrors.groupId).toBe('服务端的 Group 文案')
+  })
+  it('falls back to frontend text by reason when message is missing or blank', () => {
+    i18n.global.locale.value = 'zh-CN'
+    s.applyServerErrors(inv([{ field: 'groupId', reason: 'required', message: '' }, { field: 'packageName', reason: 'keyword' }, { field: 'artifactId', reason: 'weird' }]))
+    expect(s.serverErrors.groupId).toBe('请填写 Group。')
+    expect(s.serverErrors.packageName).toContain('Java 关键字')
+    expect(s.serverErrors.artifactId).toContain('Artifact 只能包含')
   })
 })

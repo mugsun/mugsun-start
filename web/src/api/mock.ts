@@ -11,6 +11,7 @@
  *   gen-invalid   生成返回 400 INVALID_PARAMETER（groupId 与 packageName）
  *   gen-unsupported 生成返回 400 UNSUPPORTED_OPTION
  *   gen-unknown-dep 生成返回 400 UNKNOWN_DEPENDENCY
+ *   gen-invalid-noreason 生成返回 INVALID_PARAMETER，details 只有 reason、message 为空
  *   gen-invalid-other 生成返回 400 INVALID_PARAMETER，但 field 不在表单里（baseDir）
  *   请求里出现非默认的 bootVersion/javaVersion/packaging/language/configurationFileFormat 也返回 UNSUPPORTED_OPTION
  */
@@ -39,12 +40,14 @@ const fields: Fields = {
   version: { default: '0.0.1-SNAPSHOT' }
 }
 
-const pcRemove: Record<string, string[]> = { gis: ['ol', 'cesium', 'gcoord'], track: ['@mugsun/track-web', 'rrweb-player'] }  // ai 的 npmRemove 待 S2 定稿，mock 不编造
+/** 与后端 server/src/main/resources/application.yml（mugsun-start PR #1 @e5512f5）一致 */
+const pcRemove: Record<string, string[]> = { gis: ['cesium', 'ol', 'gcoord'], track: ['@mugsun/track-web', 'rrweb-player', 'source-map-js'], ai: ['vue-element-plus-x', '@vue-flow/core'] }
+const refLink: Record<string, string> = { gis: `${DOCS}/boot/`, track: `${DOCS}/track/`, ai: `${DOCS}/boot/` }
 
 export function buildMockMetadata(): Metadata {
   const opt = (id: string, group: string, icon: string, name: L10n, description: L10n, backendOnly: L10n) => ({
     id, group, icon, name, description, default: false, appliesTo: BOTH, requires: [], conflicts: [],
-    notes: { backendOnly }, links: { reference: `${DOCS}/boot/${id}` },
+    notes: { backendOnly }, links: { reference: refLink[id] },
     maven: { groupId: 'com.mugsun', artifactId: `mugsun-boot-${id}` },
     pc: { dir: `modules/${id}`, npmRemove: pcRemove[id] }
   })
@@ -63,19 +66,19 @@ export function buildMockMetadata(): Metadata {
     database: { default: 'postgresql', values: [{ id: 'postgresql', name: 'PostgreSQL' }], readOnly: true, note: l('一期仅支持 PostgreSQL', 'Phase 1 supports PostgreSQL only') },
     modules: {
       alwaysOn: [
-        on('core-system', 'system', l('系统管理与多租户', 'System administration and multi-tenancy'), l('用户、角色、菜单、部门、多租户。', 'Users, roles, menus, departments and multi-tenancy.'), null),
-        on('core-security', 'security', l('认证与安全', 'Authentication and security'), l('登录、验证码、双因子、密码策略与数据脱敏。', 'Sign-in, captcha, two-factor authentication, password policies and data masking.'), null),
-        on('core-audit', 'audit', l('日志与审计', 'Logging and auditing'), l('操作日志防篡改与登录日志。', 'Tamper-evident operation logs and sign-in logs.'), null),
-        on('core-file-msg', 'message', l('文件、短信与消息', 'Files, SMS and messaging'), l('文件存储、短信、邮件、通知与站内消息。', 'File storage, SMS, email, notifications and in-app messages.'), null),
-        on('core-workflow', 'flow', l('工作流', 'Workflow'), l('基于 warm-flow 的流程设计与审批。', 'Process design and approval based on warm-flow.'), 'phase-2'),
+        on('core-system', 'system', l('系统管理与多租户', 'System administration and multi-tenancy'), l('用户、角色、菜单、部门、岗位、多租户、字典与参数。', 'Users, roles, menus, departments, positions, multi-tenancy, dictionaries and parameters.'), null),
+        on('core-security', 'security', l('认证与安全', 'Authentication and security'), l('登录、验证码、双因子、密码策略、国密与数据脱敏。', 'Sign-in, captcha, two-factor authentication, password policies, SM cryptography and data masking.'), null),
+        on('core-audit', 'audit', l('日志与审计', 'Logging and auditing'), l('操作日志防篡改、登录日志与访问日志留存。', 'Tamper-evident operation logs, sign-in logs and access log retention.'), null),
+        on('core-file-msg', 'file', l('文件与消息', 'Files and messaging'), l('文件与对象存储、短信、邮件、通知与站内信。', 'File and object storage, SMS, email, notices and in-app messages.'), null),
+        on('core-workflow', 'flow', l('工作流', 'Workflow'), l('基于 warm-flow 的流程设计、审批与待办。', 'Process design, approval and to-do lists based on warm-flow.'), 'phase-2'),
         on('core-lowcode', 'lowcode', l('低代码与代码生成', 'Low-code and code generation'), l('代码生成、在线表单与表单设计器。', 'Code generation, online forms and a form designer.'), 'phase-2'),
         on('core-open', 'open', l('开放平台与社交登录', 'Open platform and social sign-in'), l('OAuth2 客户端、API Key、调用日志与第三方登录。', 'OAuth2 clients, API keys, call logs and third-party sign-in.'), 'phase-2'),
-        on('core-ops', 'ops', l('定时任务与监控', 'Scheduled jobs and monitoring'), l('PowerJob 定时任务、运行监控与在线用户。', 'PowerJob scheduling, runtime monitoring and online users.'), null)
+        on('core-ops', 'ops', l('定时任务与监控', 'Scheduled jobs and monitoring'), l('PowerJob 定时任务、健康检查与指标、在线用户。', 'PowerJob scheduled jobs, health checks and metrics, and online users.'), 'phase-3')
       ],
       optional: [
-        opt('gis', 'geo', 'map', l('GIS', 'GIS'), l('地图、图层、地理围栏。', 'Maps, layers and geofences, with support for vector tiles and 3D globe rendering.'), l('仅后端时只含 REST 接口。', 'Backend only includes the REST API.')),
-        opt('track', 'analytics', 'track', l('埋点', 'Analytics'), l('浏览器埋点 SDK 与分析看板。', 'A browser tracking SDK with session replay and an analytics dashboard for events and funnels.'), l('仅后端时只含采集与查询接口，看板需要前后端或自建前端。', 'Backend only includes the collection and query APIs. The dashboard requires the full stack or your own frontend.')),
-        opt('ai', 'ai', 'ai', l('AI', 'AI'), l('模型接入、对话、知识库。', 'Model integration, chat and knowledge bases, with retrieval-augmented generation over your own documents.'), l('仅后端时只含 REST 接口。', 'Backend only includes the REST API.'))
+        opt('gis', 'geo', 'map', l('GIS', 'GIS'), l('地图、图层、地理围栏。', 'Maps, layers and geofences.'), l('仅后端时只含 REST 接口。', 'Backend only includes the REST API.')),
+        opt('track', 'analytics', 'track', l('埋点', 'Analytics'), l('浏览器埋点 SDK 与分析看板。', 'A browser tracking SDK and an analytics dashboard.'), l('仅后端时只含采集与查询接口，看板需要前后端或自建前端。', 'Backend only includes the collection and query APIs. The dashboard requires the full stack or your own frontend.')),
+        opt('ai', 'ai', 'ai', l('AI', 'AI'), l('模型接入、对话、知识库。', 'Model integration, chat and knowledge bases.'), l('仅后端时只含 REST 接口。', 'Backend only includes the REST API.'))
       ]
     },
     postGenerate: {
@@ -152,24 +155,106 @@ export function buildPreview(req: ProjectRequest, requestId: string): PreviewRes
   return { requestId, root: req.baseDir || req.artifactId, fileCount: entries.length, dirCount: dirs, truncated: false, tree }
 }
 
-/* ---------- 服务端校验（模拟 S3） ---------- */
-const MSG: Record<string, L10n> = {
-  groupId: l('Group 只能包含小写字母、数字、下划线和点，且不能以数字开头。', 'The group can only contain lowercase letters, digits, underscores and dots, and cannot start with a digit.'),
-  artifactId: l('Artifact 只能包含小写字母、数字和连字符，且须以字母开头，最长 50 个字符。', 'The artifact can only contain lowercase letters, digits and hyphens, must start with a letter and can be up to 50 characters.'),
-  name: l('项目名称为必填项，最长 50 个字符。', 'The project name is required and can be up to 50 characters.'),
-  packageName: l('包名须由小写字母、数字和下划线组成的段以点连接，各段不能以数字开头，不能是 Java 关键字或 true/false/null。', 'The package name must be dot-separated segments of lowercase letters, digits and underscores. Segments cannot start with a digit, be a Java keyword or be true, false or null.'),
-  description: l('描述最长 200 个字符。', 'The description can be up to 200 characters.')
+/* ---------- 服务端校验（模拟 S3，对齐 mugsun-start PR #4 @ff7a5a6 的 ProjectRequestValidator 与 messages*.properties） ---------- */
+/** detail 文案：先找 detail.<field>.<reason>，再找 detail.<reason>；{0} {1} 为参数 */
+const DETAIL: Record<string, L10n> = {
+  required: l('此项为必填项。', 'This field is required.'),
+  maxLength: l('最长 {0} 个字符。', 'Up to {0} characters.'),
+  pattern: l('格式不正确。', 'The format is invalid.'),
+  unsupported: l('一期不支持取值 {0}。', 'The value {0} is not supported in phase 1.'),
+  unknown: l('未知的模块 {0}。', 'Unknown module {0}.'),
+  notApplicable: l('模块 {0} 不适用于生成范围 {1}。', 'The module {0} does not apply to the project type {1}.'),
+  'groupId.required': l('Group 为必填项。', 'The group is required.'),
+  'groupId.pattern': l('Group 只能包含小写字母、数字、下划线和点，且不能以数字开头。', 'The group can only contain lowercase letters, digits, underscores and dots, and cannot start with a digit.'),
+  'artifactId.required': l('Artifact 为必填项。', 'The artifact is required.'),
+  'artifactId.pattern': l('Artifact 只能包含小写字母、数字和连字符，且须以字母开头，最长 50 个字符。', 'The artifact can only contain lowercase letters, digits and hyphens, must start with a letter and can be up to 50 characters.'),
+  'artifactId.maxLength': l('Artifact 只能包含小写字母、数字和连字符，且须以字母开头，最长 50 个字符。', 'The artifact can only contain lowercase letters, digits and hyphens, must start with a letter and can be up to 50 characters.'),
+  'name.required': l('项目名称为必填项，最长 50 个字符。', 'The project name is required and can be up to 50 characters.'),
+  'name.maxLength': l('项目名称为必填项，最长 50 个字符。', 'The project name is required and can be up to 50 characters.'),
+  'packageName.pattern': l('包名须由小写字母、数字和下划线组成的段以点连接，各段不能以数字开头。', 'The package name must be dot-separated segments of lowercase letters, digits and underscores that do not start with a digit.'),
+  'packageName.keyword': l('包名中的 {0} 是 Java 关键字或保留字面量，不能用作包名的一段。', 'The segment {0} is a Java keyword or literal and cannot be used in a package name.'),
+  'description.maxLength': l('描述最长 200 个字符。', 'The description can be up to 200 characters.'),
+  'baseDir.pattern': l('根目录名只能包含字母、数字、点、下划线和连字符，最长 64 个字符。', 'The root folder name can only contain letters, digits, dots, underscores and hyphens, up to 64 characters.')
 }
+const ERROR: Record<string, L10n> = {
+  INVALID_PARAMETER: l('请求参数不符合要求，请检查标出的字段。', 'Some parameters are invalid. Check the fields listed in details.'),
+  UNKNOWN_DEPENDENCY: l('未知的模块：{0}。', 'Unknown module: {0}.'),
+  UNSUPPORTED_OPTION: l('一期不支持该选项：{0}。', 'This option is not supported in phase 1: {0}.'),
+  DEPENDENCY_NOT_APPLICABLE: l('所选模块不适用于当前生成范围：{0}。', 'The selected module does not apply to this project type: {0}.'),
+  RATE_LIMITED: l('请求过于频繁，请在 {0} 秒后重试。', 'Too many requests. Try again in {0} seconds.'),
+  GENERATION_FAILED: l('生成失败，请稍后重试。反馈问题时请附上请求编号。', 'Generation failed. Try again later, and include the request ID if you report the problem.'),
+  TEMPLATE_UNAVAILABLE: l('模板暂不可用，请稍后重试。', 'The template is unavailable. Try again later.'),
+  NOT_FOUND: l('请求的地址不存在。', 'The requested resource does not exist.')
+}
+const fmt = (s: string, args: unknown[]) => s.replace(/\{(\d)\}/g, (_m, i) => String(args[Number(i)] ?? ''))
+type Problem = { field: string; reason: string; args?: unknown[] }
+function detail(p: Problem, lang: 'zh' | 'en'): ErrorDetail {
+  const tpl = DETAIL[`${p.field}.${p.reason}`] ?? DETAIL[p.reason]
+  return { field: p.field, reason: p.reason, message: tpl ? fmt(tpl[lang], p.args ?? []) : p.reason }
+}
+/** 与后端 ErrorResponses#body 一致：INVALID_PARAMETER 只有一项时 message 取该项，否则取错误码文案 */
+function problemResponse(status: number, code: string, problems: Problem[], lang: 'zh' | 'en', id: string, extra: Record<string, string> = {}) {
+  const details = problems.map((p) => detail(p, lang))
+  const joined = [...new Set(problems.map((p) => String(p.args?.[0] ?? p.field)))].join(', ')
+  const message = code === 'INVALID_PARAMETER' && details.length === 1 ? (details[0].message ?? '') : fmt((ERROR[code] ?? l(code, code))[lang], [extra['Retry-After'] ?? joined])
+  const body: ErrorBody = { code, message, requestId: id, timestamp: new Date().toISOString(), details }
+  return json(status, body, id, extra)
+}
+
+/** 字段校验（INVALID_PARAMETER），顺序与后端一致 */
 export function validateRequest(req: ProjectRequest, lang: 'zh' | 'en'): ErrorDetail[] {
-  const out: ErrorDetail[] = []
-  for (const [f, spec] of Object.entries(fields)) {
-    if (f === 'version') continue
-    const v = String((req as unknown as Record<string, unknown>)[f] ?? '')
-    const bad = (spec.required && !v) || (spec.maxLength !== undefined && v.length > spec.maxLength) || (spec.pattern && v && !new RegExp(spec.pattern).test(v))
-    const reserved = f === 'packageName' && v.split('.').some(isReservedSegment)
-    if (bad || reserved) out.push({ field: f, message: MSG[f][lang] })
+  return fieldProblems(req).map((p) => detail(p, lang))
+}
+function fieldProblems(req: ProjectRequest): Problem[] {
+  const out: Problem[] = []
+  const r = req as unknown as Record<string, unknown>
+  for (const f of ['groupId', 'artifactId', 'name', 'description'] as const) {
+    const spec = fields[f]!
+    const v = String(r[f] ?? '')
+    if (!v.trim()) { if (spec.required) out.push({ field: f, reason: 'required' }); continue }
+    if (spec.maxLength !== undefined && v.length > spec.maxLength) out.push({ field: f, reason: 'maxLength', args: [spec.maxLength] })
+    else if (spec.pattern && !new RegExp(spec.pattern).test(v)) out.push({ field: f, reason: 'pattern' })
   }
+  const pkg = String(r.packageName ?? '')
+  if (pkg) {
+    if (!new RegExp(fields.packageName!.pattern!).test(pkg)) out.push({ field: 'packageName', reason: 'pattern' })
+    else { const seg = pkg.split('.').find(isReservedSegment); if (seg) out.push({ field: 'packageName', reason: 'keyword', args: [seg] }) }
+  }
+  const base = String(r.baseDir ?? '')
+  if (base && (!/^[A-Za-z0-9._-]{1,64}$/.test(base) || base.includes('..'))) out.push({ field: 'baseDir', reason: 'pattern' })
   return out
+}
+
+/** 一期只接受默认值的参数（§4.2）；传了非默认值返回 UNSUPPORTED_OPTION */
+const FIXED_OPTIONS: Record<string, string> = { language: 'java', configurationFileFormat: 'yaml', bootVersion: '3.5.13', javaVersion: '21', packaging: 'jar', database: 'postgresql' }
+export function unsupportedOptions(req: ProjectRequest): Problem[] {
+  const r = req as unknown as Record<string, unknown>
+  const out: Problem[] = []
+  if (r.type && !BOTH.includes(String(r.type))) out.push({ field: 'type', reason: 'unsupported', args: [r.type] })
+  for (const [k, v] of Object.entries(FIXED_OPTIONS)) if (r[k] !== undefined && r[k] !== '' && r[k] !== v) out.push({ field: k, reason: 'unsupported', args: [r[k]] })
+  return out
+}
+function dependencyProblems(req: ProjectRequest): [string, Problem[]] | null {
+  const m = buildMockMetadata()
+  const always = new Set(m.modules.alwaysOn.map((d) => d.id))
+  const opt = new Map(m.modules.optional.map((d) => [d.id, d]))
+  const ids = req.dependencies.map((d) => d.trim()).filter((d) => d && !always.has(d))
+  const unknown = ids.filter((d) => !opt.has(d))
+  if (unknown.length) return ['UNKNOWN_DEPENDENCY', unknown.map((d) => ({ field: 'dependencies', reason: 'unknown', args: [d] }))]
+  const type = req.type || 'mugsun-fullstack'
+  const na = ids.filter((d) => !opt.get(d)!.appliesTo.includes(type))
+  if (na.length) return ['DEPENDENCY_NOT_APPLICABLE', na.map((d) => ({ field: 'dependencies', reason: 'notApplicable', args: [d, type] }))]
+  return null
+}
+/** 后端顺序：INVALID_PARAMETER → UNSUPPORTED_OPTION → UNKNOWN_DEPENDENCY → DEPENDENCY_NOT_APPLICABLE */
+function serverCheck(req: ProjectRequest, lang: 'zh' | 'en', id: string): Response | null {
+  const invalid = fieldProblems(req)
+  if (invalid.length) return problemResponse(400, 'INVALID_PARAMETER', invalid, lang, id)
+  const unsupported = unsupportedOptions(req)
+  if (unsupported.length) return problemResponse(400, 'UNSUPPORTED_OPTION', unsupported, lang, id)
+  const dep = dependencyProblems(req)
+  if (dep) return problemResponse(400, dep[0], dep[1], lang, id)
+  return null
 }
 
 /* ---------- mockFetch ---------- */
@@ -183,11 +268,6 @@ const hang = (signal?: AbortSignal | null) => wait(1e9, signal)
 function json(status: number, body: unknown, id: string, extra: Record<string, string> = {}) {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'X-Request-Id': id, ...extra } })
 }
-function err(status: number, code: string, message: L10n, lang: 'zh' | 'en', id: string, details: ErrorDetail[] = [], extra: Record<string, string> = {}) {
-  const body: ErrorBody = { code, message: message[lang], requestId: id, timestamp: new Date().toISOString(), details }
-  return json(status, body, id, extra)
-}
-const FAILED = l('生成失败，请稍后重试。', 'Generation failed. Try again later.')
 
 function readRequest(init?: RequestInit): ProjectRequest {
   const body = init?.body
@@ -199,14 +279,6 @@ function readRequest(init?: RequestInit): ProjectRequest {
   return o as unknown as ProjectRequest
 }
 
-/** 一期只接受默认值的参数（§4.2）；传了非默认值返回 UNSUPPORTED_OPTION */
-const FIXED_OPTIONS: Record<string, string> = { bootVersion: '3.5.13', javaVersion: '21', packaging: 'jar', language: 'java', configurationFileFormat: 'yaml', database: 'postgresql' }
-export function unsupportedOptions(req: ProjectRequest): ErrorDetail[] {
-  const r = req as unknown as Record<string, unknown>
-  return Object.entries(FIXED_OPTIONS).filter(([k, v]) => r[k] !== undefined && r[k] !== v).map(([k]) => ({ field: k, message: `${k} 一期只接受 ${FIXED_OPTIONS[k]}` }))
-}
-const UNSUPPORTED = l('包含一期不支持的选项。', 'The request contains an option that is not supported yet.')
-
 export async function mockFetch(url: string, init?: RequestInit): Promise<Response> {
   const path = url.replace(MOCK_BASE, '').split('?')[0]
   const signal = init?.signal
@@ -216,39 +288,37 @@ export async function mockFetch(url: string, init?: RequestInit): Promise<Respon
   if (path === '/api/v1/metadata') {
     if (mode === 'meta-loading' || mode === 'meta-timeout') await hang(signal)
     await wait(300, signal)
-    if (mode === 'meta-error') return err(503, 'TEMPLATE_UNAVAILABLE', l('模板暂不可用，请稍后重试。', 'Templates are temporarily unavailable. Try again later.'), lang, id)
+    if (mode === 'meta-error') return problemResponse(503, 'TEMPLATE_UNAVAILABLE', [], lang, id)
     return json(200, buildMockMetadata(), id, { ETag: '"mock-2026.10.1"', 'Cache-Control': 'max-age=300' })
   }
   if (path === '/api/v1/preview') {
     await wait(120, signal)
-    if (mode === 'preview-error') return err(500, 'GENERATION_FAILED', FAILED, lang, id)
+    if (mode === 'preview-error') return problemResponse(500, 'GENERATION_FAILED', [], lang, id)
     const req = readRequest(init)
-    const unsupported = unsupportedOptions(req)
-    if (unsupported.length) return err(400, 'UNSUPPORTED_OPTION', UNSUPPORTED, lang, id, unsupported)
-    const details = validateRequest(req, lang)
-    if (details.length) return err(400, 'INVALID_PARAMETER', l(details[0].message, details[0].message), lang, id, details)
+    const bad = serverCheck(req, lang, id)
+    if (bad) return bad
     return json(200, buildPreview(req, id), id)
   }
   if (path === '/starter.zip') {
     if (mode === 'gen-slow') await hang(signal)
     await wait(600, signal)
-    if (mode === 'gen-fail') return err(500, 'GENERATION_FAILED', FAILED, lang, id)
-    if (mode === 'gen-429') return err(429, 'RATE_LIMITED', l('请求过于频繁。', 'Too many requests.'), lang, id, [], { 'Retry-After': '30' })
+    if (mode === 'gen-fail') return problemResponse(500, 'GENERATION_FAILED', [], lang, id)
+    if (mode === 'gen-429') return problemResponse(429, 'RATE_LIMITED', [], lang, id, { 'Retry-After': '30' })
     const req = readRequest(init)
-    if (mode === 'gen-unknown-dep') return err(400, 'UNKNOWN_DEPENDENCY', l('模块 legacy-report 不存在。', 'Module legacy-report does not exist.'), lang, id, [{ field: 'dependencies', message: 'legacy-report' }])
-    if (mode === 'gen-invalid-other') return err(400, 'INVALID_PARAMETER', l('baseDir 只能包含字母、数字、点、下划线和连字符。', 'baseDir can only contain letters, digits, dots, underscores and hyphens.'), lang, id, [{ field: 'baseDir', message: 'pattern' }])
-    const known = new Set(buildMockMetadata().modules.optional.map((d) => d.id))
-    const unknown = req.dependencies.filter((d) => !known.has(d))
-    if (unknown.length) return err(400, 'UNKNOWN_DEPENDENCY', l(`模块 ${unknown.join(', ')} 不存在。`, `Module ${unknown.join(', ')} does not exist.`), lang, id, unknown.map((d) => ({ field: 'dependencies', message: d })))
-    const unsupported = mode === 'gen-unsupported' ? [{ field: 'bootVersion', message: 'bootVersion 一期只接受 3.5.13' }] : unsupportedOptions(req)
-    if (unsupported.length) return err(400, 'UNSUPPORTED_OPTION', UNSUPPORTED, lang, id, unsupported)
-    const details = mode === 'gen-invalid'
-      ? [{ field: 'groupId', message: MSG.groupId[lang] }, { field: 'packageName', message: MSG.packageName[lang] }]
-      : validateRequest(req, lang)
-    if (details.length) return err(400, 'INVALID_PARAMETER', l(details[0].message, details[0].message), lang, id, details)
+    if (mode === 'gen-unknown-dep') return problemResponse(400, 'UNKNOWN_DEPENDENCY', [{ field: 'dependencies', reason: 'unknown', args: ['legacy-report'] }], lang, id)
+    if (mode === 'gen-invalid-other') return problemResponse(400, 'INVALID_PARAMETER', [{ field: 'baseDir', reason: 'pattern' }], lang, id)
+    if (mode === 'gen-unsupported') return problemResponse(400, 'UNSUPPORTED_OPTION', [{ field: 'bootVersion', reason: 'unsupported', args: ['3.4.0'] }], lang, id)
+    if (mode === 'gen-invalid') return problemResponse(400, 'INVALID_PARAMETER', [{ field: 'groupId', reason: 'pattern' }, { field: 'packageName', reason: 'keyword', args: ['class'] }], lang, id)
+    if (mode === 'gen-invalid-noreason') {
+      // 服务端没给 message 时，前端按 reason 显示自己的文案
+      const body: ErrorBody = { code: 'INVALID_PARAMETER', message: '', requestId: id, details: [{ field: 'groupId', reason: 'required', message: '' }] }
+      return json(400, body, id)
+    }
+    const bad = serverCheck(req, lang, id)
+    if (bad) return bad
     const root = req.baseDir || req.artifactId
     const text = `前端 mock 数据：真实接口接入前不生成工程。\n${JSON.stringify(req, null, 2)}\n`
     return new Response(text, { status: 200, headers: { 'Content-Type': 'application/zip', 'Content-Disposition': `attachment; filename="${root}.zip"`, 'X-Request-Id': id, 'X-Mugsun-Template': 'boot=mock;pc=mock' } })
   }
-  return err(404, 'NOT_FOUND', l('接口不存在。', 'Not found.'), lang, id)
+  return problemResponse(404, 'NOT_FOUND', [], lang, id)
 }

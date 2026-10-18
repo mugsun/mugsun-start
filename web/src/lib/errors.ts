@@ -3,11 +3,14 @@ import { ApiError } from '@/api'
 type T = (key: string, values?: Record<string, unknown>) => string
 
 /** 这些错误优先显示服务端 message（已按 Accept-Language 本地化），没有再用前端文案 */
-const SERVER_MESSAGE_CODES = new Set(['UNKNOWN_DEPENDENCY', 'UNSUPPORTED_OPTION', 'INVALID_PARAMETER'])
+const SERVER_MESSAGE_CODES = new Set(['UNKNOWN_DEPENDENCY', 'UNSUPPORTED_OPTION', 'INVALID_PARAMETER', 'DEPENDENCY_NOT_APPLICABLE', 'DEPENDENCY_CONFLICT', 'DEPENDENCY_REQUIRES'])
 const FALLBACK_KEY: Record<string, string> = {
   UNKNOWN_DEPENDENCY: 'bar.unknownDependency',
   UNSUPPORTED_OPTION: 'bar.unsupported',
-  INVALID_PARAMETER: 'bar.invalidOther'
+  INVALID_PARAMETER: 'bar.invalidOther',
+  DEPENDENCY_NOT_APPLICABLE: 'bar.invalidOther',
+  DEPENDENCY_CONFLICT: 'bar.invalidOther',
+  DEPENDENCY_REQUIRES: 'bar.invalidOther'
 }
 
 /**
