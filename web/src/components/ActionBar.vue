@@ -61,10 +61,10 @@ const downloadTip = computed(() =>
 @media (max-width: 639px) {
   .inner { flex-direction: column; align-items: stretch; height: auto; padding: 8px var(--gutter) 10px; gap: 6px; }
   .summary { font-size: 12px; }
-  .btns { gap: 8px; }
-  /* 两个按钮等宽 */
-  .btns > * { flex: 1 1 0; min-width: 0; }
-  .b, .tipwrap, .tipwrap .el-button { width: 100%; min-width: 0; height: 44px; }
+  /* 两个按钮等宽：grid 两列 minmax(0, 1fr)，不受按钮内容宽度和 Element Plus 相邻按钮 margin-left 影响 */
+  .btns { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+  .btns .el-button + .el-button, .btns > * { margin: 0; }
+  .b, .tipwrap, .tipwrap .el-button { width: 100%; min-width: 0; height: 44px; box-sizing: border-box; }
   .sub { display: block; text-align: center; font-size: 12px; color: var(--el-text-color-secondary); padding-bottom: 6px; }
 }
 </style>
