@@ -1,4 +1,4 @@
-// 按规格第 9 节拍验收截图（01–16），另加 17/18 两张错误态、19/20 两张 390 宽常驻模块收起/展开。用法：BASE=http://localhost:3093 OUT=<目录> node scripts/shots.mjs
+// 按规格第 9 节拍验收截图（01–16），另加 17/18 两张错误态、19/20 两张 390 宽常驻模块收起/展开、21 服务端堆栈 message 被守卫替换。用法：BASE=http://localhost:3093 OUT=<目录> node scripts/shots.mjs
 import { chromium } from '@playwright/test'
 import { mkdirSync } from 'node:fs'
 
@@ -121,4 +121,8 @@ await run('20-390-modules-expanded', { w: 390 }, async (p) => {
   await b.click(); await p.mouse.move(5, 100); await p.waitForTimeout(300)
   await p.locator('#mg-0').scrollIntoViewIfNeeded(); await p.evaluate(() => window.scrollBy(0, -80)); await p.waitForTimeout(200)
 }, { full: true })
+await run('21-1440-gen-stack', { query: '?mock=gen-stack' }, async (p) => {
+  await ready(p); await p.click('.el-button--primary:has-text("下载 ZIP")'); await p.waitForSelector('.el-message--error'); await p.mouse.move(5, 300); await p.waitForTimeout(400)
+  await contrast(p, '.el-message--error .el-message__content')
+}, { full: false })
 await browser.close()

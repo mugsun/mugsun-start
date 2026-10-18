@@ -11,6 +11,7 @@
  *   gen-invalid   生成返回 400 INVALID_PARAMETER（groupId 与 packageName）
  *   gen-unsupported 生成返回 400 UNSUPPORTED_OPTION
  *   gen-unknown-dep 生成返回 400 UNKNOWN_DEPENDENCY
+ *   gen-stack     生成返回 400 INVALID_PARAMETER（field=request），message 是英文 Java 堆栈（看前端守卫）
  *   gen-invalid-noreason 生成返回 INVALID_PARAMETER，details 只有 reason、message 为空
  *   gen-invalid-other 生成返回 400 INVALID_PARAMETER，但 field 不在表单里（baseDir）
  *   请求里出现非默认的 bootVersion/javaVersion/packaging/language/configurationFileFormat 也返回 UNSUPPORTED_OPTION
@@ -309,6 +310,11 @@ export async function mockFetch(url: string, init?: RequestInit): Promise<Respon
     if (mode === 'gen-invalid-other') return problemResponse(400, 'INVALID_PARAMETER', [{ field: 'baseDir', reason: 'pattern' }], lang, id)
     if (mode === 'gen-unsupported') return problemResponse(400, 'UNSUPPORTED_OPTION', [{ field: 'bootVersion', reason: 'unsupported', args: ['3.4.0'] }], lang, id)
     if (mode === 'gen-invalid') return problemResponse(400, 'INVALID_PARAMETER', [{ field: 'groupId', reason: 'pattern' }, { field: 'packageName', reason: 'keyword', args: ['class'] }], lang, id)
+    if (mode === 'gen-stack') {
+      const stack = 'java.lang.IllegalStateException: Cannot parse request body\n\tat com.mugsun.start.web.MugsunProjectRequestConverter.convert(MugsunProjectRequestConverter.java:24)\n\tat org.springframework.web.servlet.FrameworkServlet.service(FrameworkServlet.java:885)'
+      const body: ErrorBody = { code: 'INVALID_PARAMETER', message: stack, requestId: id, details: [{ field: 'request', reason: 'invalid', message: stack }] }
+      return json(400, body, id)
+    }
     if (mode === 'gen-invalid-noreason') {
       // 服务端没给 message 时，前端按 reason 显示自己的文案
       const body: ErrorBody = { code: 'INVALID_PARAMETER', message: '', requestId: id, details: [{ field: 'groupId', reason: 'required', message: '' }] }

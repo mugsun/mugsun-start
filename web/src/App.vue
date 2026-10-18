@@ -70,7 +70,7 @@ function handleGenerateError(e: unknown) {
     formRef.value?.focusFirstServerError()
     return
   }
-  const message = generateErrorMessage(err, t)
+  const message = generateErrorMessage(err, t, locale.value)
   ElMessage({ type: 'error', message, duration: 6000, showClose: true })
 }
 

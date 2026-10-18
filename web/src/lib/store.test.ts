@@ -133,6 +133,7 @@ describe('server field errors', () => {
 describe('details {field, reason, message} (PR #4)', () => {
   const inv = (details: { field: string; reason?: string; message?: string }[]) => new ApiError(400, 'INVALID_PARAMETER', '', 'r', details)
   it('server message wins over reason', () => {
+    i18n.global.locale.value = 'zh-CN'
     s.applyServerErrors(inv([{ field: 'groupId', reason: 'pattern', message: '服务端的 Group 文案' }]))
     expect(s.serverErrors.groupId).toBe('服务端的 Group 文案')
   })
@@ -142,5 +143,19 @@ describe('details {field, reason, message} (PR #4)', () => {
     expect(s.serverErrors.groupId).toBe('请填写 Group。')
     expect(s.serverErrors.packageName).toContain('Java 关键字')
     expect(s.serverErrors.artifactId).toContain('Artifact 只能包含')
+  })
+})
+
+describe('details messages pass the same guard', () => {
+  const inv = (message: string) => new ApiError(400, 'INVALID_PARAMETER', '', 'r', [{ field: 'groupId', reason: 'pattern', message }])
+  it('stack / wrong language / too long fall back to field+reason text', () => {
+    i18n.global.locale.value = 'zh-CN'
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    for (const m of ['java.lang.IllegalStateException\n\tat x', 'The group is invalid.', '错'.repeat(201)]) {
+      s.applyServerErrors(inv(m))
+      expect(s.serverErrors.groupId).toBe('Group 只能包含小写字母、数字、下划线和点，且不能以数字开头。')
+    }
+    s.applyServerErrors(inv('服务端的 Group 文案'))
+    expect(s.serverErrors.groupId).toBe('服务端的 Group 文案')
   })
 })

@@ -75,6 +75,18 @@ describe('mock via http api', () => {
   it('truncated is always present', async () => {
     expect((await api.preview(base, { locale: 'en' })).truncated).toBe(false)
   })
+  it('keywords follow the backend: com.record.x ok, com._ rejected', async () => {
+    expect((await api.preview({ ...base, packageName: 'com.record.x' }, { locale: 'en' })).truncated).toBe(false)
+    const e = await api.preview({ ...base, packageName: 'com._' }, { locale: 'en' }).catch((x) => x)
+    expect(e.details[0]).toMatchObject({ field: 'packageName', reason: 'keyword' })
+  })
+  it('gen-stack returns an English stack trace on field=request', async () => {
+    setMockMode('gen-stack')
+    const e = await api.generate(base, { locale: 'zh-CN' }).catch((x) => x)
+    expect(e.code).toBe('INVALID_PARAMETER')
+    expect(e.details[0].field).toBe('request')
+    expect(e.message).toContain('\tat ')
+  })
   it('package keyword/literal → INVALID_PARAMETER on packageName', async () => {
     for (const p of ['com.class', 'com.null']) {
       const e = await api.preview({ ...base, packageName: p }, { locale: 'en' }).catch((x) => x)
