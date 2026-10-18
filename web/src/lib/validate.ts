@@ -1,17 +1,26 @@
-export const GROUP_RE = /^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*$/
-export const ARTIFACT_RE = /^[a-z][a-z0-9-]*$/
+import type { FieldSpec } from '@/api'
+
 const JAVA_KEYWORDS = new Set(
   'abstract assert boolean break byte case catch char class const continue default do double else enum extends final finally float for goto if implements import instanceof int interface long native new package private protected public return short static strictfp super switch synchronized this throw throws transient try void volatile while true false null var record yield'.split(' ')
 )
 
-export function isValidGroup(v: string) { return GROUP_RE.test(v) }
-export function isValidArtifact(v: string) { return ARTIFACT_RE.test(v) && v.length <= 50 }
-export function isValidPackage(v: string) {
-  if (!v) return false
-  return v.split('.').every((s) => /^[a-z_][a-z0-9_]*$/.test(s) && !JAVA_KEYWORDS.has(s))
+export type FieldError = 'required' | 'maxLength' | 'pattern' | 'keyword' | null
+
+/** 按 metadata 下发的 FieldSpec 校验；包名额外检查 Java 关键字（后端约定未覆盖，前端加严） */
+export function checkField(v: string, spec: FieldSpec | undefined, opts: { javaPackage?: boolean } = {}): FieldError {
+  if (!spec) return null
+  if (!v) return spec.required ? 'required' : null
+  if (spec.maxLength !== undefined && v.length > spec.maxLength) return 'maxLength'
+  if (spec.pattern) {
+    let re: RegExp | null = null
+    try { re = new RegExp(spec.pattern) } catch { re = null }
+    if (re && !re.test(v)) return 'pattern'
+  }
+  if (opts.javaPackage && v.split('.').some((s) => JAVA_KEYWORDS.has(s))) return 'keyword'
+  return null
 }
+
 /** 包名 = Group + "." + Artifact（去掉连字符） */
 export function derivePackage(group: string, artifact: string) {
-  const a = artifact.replace(/-/g, '')
-  return [group, a].filter(Boolean).join('.')
+  return [group, artifact.replace(/-/g, '')].filter(Boolean).join('.')
 }

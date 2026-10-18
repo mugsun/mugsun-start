@@ -1,24 +1,24 @@
 import { describe, it, expect } from 'vitest'
-import { isValidGroup, isValidArtifact, isValidPackage, derivePackage } from './validate'
+import { checkField, derivePackage } from './validate'
+import { FALLBACK_FIELDS as F } from './defaults'
 
-describe('validate', () => {
+describe('validate by field spec', () => {
   it('group', () => {
-    expect(isValidGroup('com.example')).toBe(true)
-    expect(isValidGroup('com.1x')).toBe(false)
-    expect(isValidGroup('Com.example')).toBe(false)
-    expect(isValidGroup('com..a')).toBe(false)
+    expect(checkField('com.example', F.groupId)).toBeNull()
+    expect(checkField('com.1x', F.groupId)).toBe('pattern')
+    expect(checkField('', F.groupId)).toBe('required')
   })
   it('artifact', () => {
-    expect(isValidArtifact('my-app')).toBe(true)
-    expect(isValidArtifact('1app')).toBe(false)
-    expect(isValidArtifact('a'.repeat(51))).toBe(false)
+    expect(checkField('my-app', F.artifactId)).toBeNull()
+    expect(checkField('a'.repeat(51), F.artifactId)).toBe('maxLength')
   })
-  it('package', () => {
-    expect(isValidPackage('com.example.demo')).toBe(true)
-    expect(isValidPackage('com.example.class')).toBe(false)
-    expect(isValidPackage('com.my-app')).toBe(false)
+  it('package with keyword check', () => {
+    expect(checkField('com.example.demo', F.packageName, { javaPackage: true })).toBeNull()
+    expect(checkField('com.example.class', F.packageName, { javaPackage: true })).toBe('keyword')
+    expect(checkField('com.my-app', F.packageName)).toBe('pattern')
   })
-  it('derive', () => {
-    expect(derivePackage('com.example', 'my-app')).toBe('com.example.myapp')
+  it('invalid server pattern is ignored, not thrown', () => {
+    expect(checkField('x', { pattern: '([' })).toBeNull()
   })
+  it('derive', () => { expect(derivePackage('com.example', 'my-app')).toBe('com.example.myapp') })
 })

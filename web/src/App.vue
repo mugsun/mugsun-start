@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useDark, useToggle, useMediaQuery, useOnline, useEventListener, useClipboard } from '@vueuse/core'
 import { ElMessage } from 'element-plus'
@@ -12,8 +12,9 @@ import ModuleList from './components/ModuleList.vue'
 import PreviewTree from './components/PreviewTree.vue'
 import ActionBar from './components/ActionBar.vue'
 import StartDrawer from './components/StartDrawer.vue'
-import { api, ApiError } from './api'
-import { form, scopeTypes, loadMetadata, applyQuery, toRequest, metaState } from './lib/store'
+import { api, ApiError, isAbort } from './api'
+import { form, scopeTypes, loadMetadata, applyQuery, toRequest, metaState, serverErrors } from './lib/store'
+import type { FieldName } from './api'
 import { toQuery } from './lib/share'
 
 const { t, locale } = useI18n()
@@ -32,9 +33,7 @@ const drawer = ref(false)
 const guideAvailable = ref(false)
 
 applyQuery(location.search)
-onMounted(() => { document.documentElement.lang = locale.value; loadMetadata(locale.value) })
-// metadata 文案随语言变化，切换语言后重新拉取
-watch(locale, (l) => loadMetadata(l))
+onMounted(() => { document.documentElement.lang = locale.value; loadMetadata() })
 
 async function download() {
   if (generating.value || metaState.value !== 'ready') return
@@ -44,8 +43,9 @@ async function download() {
   generating.value = true
   slow.value = false
   const slowTimer = setTimeout(() => (slow.value = true), 10_000)
+  genCtrl = new AbortController()
   try {
-    const r = await api.generate(toRequest())
+    const r = await api.generate(toRequest(), { locale: locale.value, signal: genCtrl.signal })
     const url = URL.createObjectURL(r.blob)
     const a = Object.assign(document.createElement('a'), { href: url, download: r.fileName })
     a.click()
@@ -53,13 +53,33 @@ async function download() {
     drawer.value = true
     guideAvailable.value = true
   } catch (e) {
-    const id = e instanceof ApiError && e.requestId ? e.requestId : '-'
-    ElMessage({ type: 'error', message: t('bar.failed', { id }), duration: 6000, showClose: true })
+    if (isAbort(e)) return
+    handleGenerateError(e)
   } finally {
     clearTimeout(slowTimer)
     generating.value = false
     slow.value = false
   }
+}
+
+let genCtrl: AbortController | null = null
+const FORM_FIELDS: FieldName[] = ['groupId', 'artifactId', 'name', 'packageName', 'description']
+
+/** §4.4：字段错误回填表单；429 提示等待时间；其余给出错误编号 */
+function handleGenerateError(e: unknown) {
+  const err = e instanceof ApiError ? e : null
+  const mapped = (err?.code === 'INVALID_PARAMETER' ? err.details : []).filter((d) => FORM_FIELDS.includes(d.field as FieldName))
+  if (mapped.length) {
+    for (const d of mapped) serverErrors[d.field as FieldName] = d.message
+    invalidCount.value = mapped.length
+    formRef.value?.focusFirstServerError()
+    return
+  }
+  const id = err?.requestId || '-'
+  const message = err?.code === 'RATE_LIMITED'
+    ? (err.retryAfter !== undefined ? t('bar.rateLimited', { s: err.retryAfter, id }) : t('bar.rateLimitedNoWait', { id }))
+    : err?.code === 'TIMEOUT' ? t('bar.timeout') : t('bar.failed', { id })
+  ElMessage({ type: 'error', message, duration: 6000, showClose: true })
 }
 
 async function share() {
@@ -93,7 +113,7 @@ useEventListener(window, 'keydown', (e: KeyboardEvent) => {
         </section>
         <section class="col right" aria-labelledby="h-mod">
           <h2 id="h-mod">{{ t('modules.title') }}</h2>
-          <ModuleList @retry="loadMetadata(locale)" />
+          <ModuleList @retry="loadMetadata()" />
         </section>
       </div>
       <PreviewTree class="pv" />

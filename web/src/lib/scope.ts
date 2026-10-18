@@ -1,18 +1,23 @@
 import type { ProjectType } from '@/api'
+import { FALLBACK_TYPES } from './defaults'
+import { loc } from './l10n'
 
-export const BACKEND = 'maven-project'
-export const FULLSTACK = 'mugsun-fullstack'
+export { BACKEND, FULLSTACK } from './defaults'
+export interface ScopeView { id: string; name: string; description: string }
 
-type T = (key: string) => string
-
-/** 生成范围始终由前端给出；接口有返回同 id 时用接口文案覆盖，接口失败不影响 */
-export function resolveScopeTypes(t: T, fromApi?: ProjectType[]): ProjectType[] {
-  const base: ProjectType[] = [
-    { id: BACKEND, name: t('scope.backend.name'), description: t('scope.backend.desc'), action: '/starter.zip', tags: { build: 'maven', format: 'project' } },
-    { id: FULLSTACK, name: t('scope.fullstack.name'), description: t('scope.fullstack.desc'), action: '/starter.zip', tags: { build: 'maven', format: 'project', pc: 'true' } }
-  ]
-  return base.map((b) => {
+/** 生成范围始终显示前端兜底的两项；接口返回同 id 时用接口文案覆盖，接口失败不影响 */
+export function resolveScopeTypes(locale: string, fromApi?: ProjectType[]): ScopeView[] {
+  return FALLBACK_TYPES.map((b) => {
     const api = fromApi?.find((x) => x.id === b.id)
-    return api ? { ...b, name: api.name || b.name, description: api.description || b.description } : b
+    return {
+      id: b.id,
+      name: loc(api?.name, locale) || loc(b.name, locale),
+      description: loc(api?.description, locale) || loc(b.description, locale)
+    }
   })
+}
+
+/** 默认类型：接口里标 default 的，其次兜底里的 */
+export function defaultType(fromApi?: ProjectType[]): string {
+  return fromApi?.find((x) => x.default && FALLBACK_TYPES.some((b) => b.id === x.id))?.id ?? FALLBACK_TYPES.find((b) => b.default)!.id
 }

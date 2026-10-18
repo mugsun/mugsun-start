@@ -4,18 +4,17 @@ import { useI18n } from 'vue-i18n'
 import { useClipboard } from '@vueuse/core'
 import { ElMessage } from 'element-plus'
 import { DocumentCopy, TopRight } from '@element-plus/icons-vue'
-import { form, isFullstack } from '@/lib/store'
+import { form, postGenerate } from '@/lib/store'
 
 const props = defineProps<{ narrow: boolean }>()
 const open = defineModel<boolean>({ required: true })
 const { t } = useI18n()
 const { copy } = useClipboard({ legacy: true })
-const env = computed(() => ['JDK 21', 'Maven 3.9+', 'Docker', ...(isFullstack.value ? ['Node.js 22.13+', 'pnpm 11+'] : [])])
+/** 环境要求与命令来自 metadata.postGenerate（失败时用兜底），{artifactId} 由前端替换 */
+const env = computed(() => postGenerate.value.requirements[form.type] ?? [])
 const cmds = computed(() => {
   const a = form.artifactId || 'demo'
-  const lines = [`unzip ${a}.zip && cd ${a}`, 'docker compose up -d', './mvnw spring-boot:run']
-  if (isFullstack.value) lines.push(`cd ${a}-pc && pnpm install && pnpm dev`)
-  return lines.join('\n')
+  return (postGenerate.value.commands[form.type] ?? []).map((c) => c.replace(/\{artifactId\}/g, a)).join('\n')
 })
 async function doCopy() { await copy(cmds.value); ElMessage.success(t('drawer.copied')) }
 </script>
@@ -38,7 +37,7 @@ async function doCopy() { await copy(cmds.value); ElMessage.success(t('drawer.co
       <p>{{ t('drawer.accessText') }}</p>
     </section>
     <section>
-      <a class="docs" href="https://docs.mugsun.com/guide/quick-start" target="_blank" rel="noopener">{{ t('drawer.docs') }}<el-icon aria-hidden="true"><TopRight /></el-icon></a>
+      <a class="docs" :href="postGenerate.docs" target="_blank" rel="noopener">{{ t('drawer.docs') }}<el-icon aria-hidden="true"><TopRight /></el-icon></a>
     </section>
   </el-drawer>
 </template>

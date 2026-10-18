@@ -1,19 +1,25 @@
 <script setup lang="ts">
 import { ref, watch, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { Setting, Lock, EditPen, Share, MapLocation, DataAnalysis, MagicStick, Box, WarningFilled, TopRight } from '@element-plus/icons-vue'
+import {
+  Setting, Lock, Document, Message, Share, EditPen, Connection, Monitor, MapLocation, DataAnalysis, MagicStick, Box, WarningFilled, TopRight
+} from '@element-plus/icons-vue'
 import type { Component } from 'vue'
-import { form, requiredDeps, optionalDeps, metaState, metadata } from '@/lib/store'
-import type { Dependency } from '@/api'
+import { form, alwaysOn, optional, metaState, BACKEND } from '@/lib/store'
+import { loc } from '@/lib/l10n'
+import type { OptionalModule } from '@/api'
 
 const emit = defineEmits<{ retry: [] }>()
-const { t } = useI18n()
-/** metadata 的 icon 字段 → 组件；未知图标回退为 Box */
-const ICONS: Record<string, Component> = { Setting, Lock, EditPen, Share, MapLocation, DataAnalysis, MagicStick }
+const { t, locale } = useI18n()
+/** metadata 下发的 icon 名 → 组件；未知名字回退为 Box */
+const ICONS: Record<string, Component> = {
+  system: Setting, security: Lock, audit: Document, message: Message, file: Message, flow: Share, lowcode: EditPen,
+  open: Connection, ops: Monitor, map: MapLocation, track: DataAnalysis, ai: MagicStick
+}
 const icon = (n?: string) => (n && ICONS[n]) || Box
-/** 分组标题取自 metadata（后端按 Accept-Language 返回） */
-const groupTitle = (gi: number) => metadata.value?.dependencies.values[gi]?.name ?? ''
-const disabledFor = (d: Dependency) => !!d.types && !d.types.includes(form.type)
+const L = (v: Parameters<typeof loc>[0]) => loc(v, locale.value)
+const disabledFor = (d: OptionalModule) => !d.appliesTo.includes(form.type)
+const backendNote = (d: OptionalModule) => (form.type === BACKEND ? L(d.notes?.backendOnly) : '')
 
 /** 骨架屏 200ms 后才出现，避免闪烁 */
 const showSkeleton = ref(false)
@@ -36,35 +42,39 @@ onBeforeUnmount(() => clearTimeout(timer))
     <div v-else-if="metaState === 'error'" class="err" role="alert">
       <el-icon :size="32" class="err-icon" aria-hidden="true"><WarningFilled /></el-icon>
       <p>{{ t('modules.loadError') }}</p>
-      <el-button type="primary" @click="emit('retry')">{{ t('modules.retry') }}</el-button>
+      <el-button type="primary" class="retry" @click="emit('retry')">{{ t('modules.retry') }}</el-button>
     </div>
 
     <template v-else>
-      <section v-for="(group, gi) in [requiredDeps, optionalDeps]" :key="gi" class="group" :aria-labelledby="`mg-${gi}`">
-        <h3 :id="`mg-${gi}`" class="gt">{{ groupTitle(gi) }}</h3>
-        <ul v-if="gi === 0" class="req">
-          <li v-for="d in group" :key="d.id">
+      <section class="group" aria-labelledby="mg-0">
+        <h3 id="mg-0" class="gt">{{ t('modules.alwaysOn') }}</h3>
+        <ul class="req">
+          <li v-for="d in alwaysOn" :key="d.id">
             <el-icon class="ri" :size="20" aria-hidden="true"><component :is="icon(d.icon)" /></el-icon>
             <div class="rt">
-              <div class="rn">{{ d.name }}</div>
-              <div class="rd" :title="d.description">{{ d.description }}</div>
+              <div class="rn">{{ L(d.name) }}</div>
+              <div class="rd" :title="L(d.description)">{{ L(d.description) }}</div>
             </div>
             <el-tag type="info" effect="plain" round class="inc">{{ t('modules.included') }}</el-tag>
           </li>
         </ul>
-        <el-checkbox-group v-else v-model="form.dependencies" class="opt">
+      </section>
+      <section class="group" aria-labelledby="mg-1">
+        <h3 id="mg-1" class="gt">{{ t('modules.optional') }}</h3>
+        <el-checkbox-group v-model="form.dependencies" class="opt">
           <el-checkbox
-            v-for="d in group" :key="d.id" :value="d.id" :disabled="disabledFor(d)"
+            v-for="d in optional" :key="d.id" :value="d.id" :disabled="disabledFor(d)"
             class="mod-card" :class="{ on: form.dependencies.includes(d.id) }"
           >
             <span class="mc">
-              <span class="mn"><el-icon :size="18" aria-hidden="true"><component :is="icon(d.icon)" /></el-icon>{{ d.name }}</span>
-              <span class="md" :title="d.description">{{ d.description }}</span>
+              <span class="mn"><el-icon :size="18" aria-hidden="true"><component :is="icon(d.icon)" /></el-icon>{{ L(d.name) }}</span>
+              <span class="md" :title="L(d.description)">{{ L(d.description) }}</span>
               <span v-if="disabledFor(d)" class="why">{{ t('modules.notApplicable') }}</span>
+              <span v-else-if="backendNote(d)" class="why">{{ backendNote(d) }}</span>
             </span>
             <a
-              v-if="d._links?.reference" class="doc" :href="d._links.reference.href" target="_blank" rel="noopener"
-              :aria-label="t('modules.docsAria', { name: d.name })" @click.stop
+              v-if="d.links?.reference" class="doc" :href="d.links.reference" target="_blank" rel="noopener"
+              :aria-label="t('modules.docsAria', { name: L(d.name) })" @click.stop
             >{{ t('modules.docs') }}<el-icon :size="12" aria-hidden="true"><TopRight /></el-icon></a>
           </el-checkbox>
         </el-checkbox-group>
@@ -72,7 +82,6 @@ onBeforeUnmount(() => clearTimeout(timer))
     </template>
   </div>
 </template>
-
 
 <style scoped>
 .modules { display: flex; flex-direction: column; gap: 24px; }

@@ -5,11 +5,10 @@ const en: typeof zh = {
   title: 'Create a mugsun project',
   subtitle: 'Choose modules and fill in the project details to generate a project that runs out of the box.',
   offline: 'You are offline. Generation will be available again once the connection is restored.',
-  scope: { backend: { name: 'Backend only', desc: 'mugsun-boot, Spring Boot 3.5, JDK 21.' }, fullstack: { name: 'Full stack', desc: 'Backend plus the mugsun-pc admin console (Vue 3).' } },
   info: { title: 'Project details', scope: 'Generation scope', meta: 'Project metadata', build: 'Build settings' },
   form: {
     group: 'Group', artifact: 'Artifact', name: 'Project name', packageName: 'Package name', description: 'Description', database: 'Database',
-    defaultDesc: 'An admin system built on mugsun', databaseHint: 'Only PostgreSQL is supported in this release', restore: 'Restore automatic value', boot: 'Spring Boot', java: 'JDK', packaging: 'Packaging',
+    databaseHint: 'Only PostgreSQL is supported in this release', restore: 'Restore automatic value', boot: 'Spring Boot', java: 'JDK', packaging: 'Packaging',
     err: {
       groupRequired: 'Enter a group.',
       group: 'The group can only contain lowercase letters, digits, underscores and dots, and cannot start with a digit.',
@@ -23,11 +22,11 @@ const en: typeof zh = {
     }
   },
   modules: {
-    title: 'Modules', included: 'Included', docs: 'Docs', docsAria: '{name} documentation (opens in a new window)',
+    title: 'Modules', alwaysOn: 'Included modules', optional: 'Optional modules', included: 'Included', docs: 'Docs', docsAria: '{name} documentation (opens in a new window)',
     notApplicable: 'This module does not apply to the selected generation scope.',
     loadError: 'The module list could not be loaded. Check your network connection and try again.', retry: 'Retry'
   },
-  preview: { title: 'Project structure', files: '{n} files', empty: 'There are no files to preview', updated: 'Project structure updated, {n} files' },
+  preview: { invalid: 'Some project details are invalid. The preview updates once they are corrected.', error: 'The preview could not be loaded. Try again later.', requestId: 'Error ID: {id}', fromModule: 'From module: {m}', truncated: 'Some directories only show item counts because the project has many files.', stale: 'The preview could not be updated. The previous result is shown.', title: 'Project structure', files: '{n} files', empty: 'There are no files to preview', updated: 'Project structure updated, {n} files' },
   bar: {
     summary: '{scope} · {n} optional modules selected · {pkg}',
     share: 'Copy share link', shared: 'Share link copied', download: 'Download ZIP', generating: 'Generating…',
@@ -35,6 +34,9 @@ const en: typeof zh = {
     disabledLoading: 'Generation will be available once the module list has loaded',
     disabledMeta: 'Generation is unavailable because the module list could not be loaded',
     invalid: '{n} fields need to be corrected',
+    rateLimited: 'Too many requests. Try again in {s} seconds. (Error ID: {id})',
+    rateLimitedNoWait: 'Too many requests. Try again later. (Error ID: {id})',
+    timeout: 'Generation timed out. Try again later.',
     failed: 'Generation failed. Try again later. (Error ID: {id})'
   },
   drawer: {

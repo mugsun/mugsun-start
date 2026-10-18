@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { form, scopeTypes, metaState } from '@/lib/store'
 
-const props = defineProps<{ narrow: boolean; generating: boolean; slow: boolean; invalidCount: number; showGuide: boolean }>()
+defineProps<{ narrow: boolean; generating: boolean; slow: boolean; invalidCount: number; showGuide: boolean }>()
 const emit = defineEmits<{ download: []; share: []; guide: []; closeAlert: [] }>()
 const { t } = useI18n()
 const isMac = typeof navigator !== 'undefined' && /Mac|iP(hone|ad)/.test(navigator.platform)
@@ -14,7 +14,6 @@ const blocked = computed(() => metaState.value !== 'ready')
 const downloadTip = computed(() =>
   metaState.value === 'error' ? t('bar.disabledMeta') : metaState.value === 'loading' ? t('bar.disabledLoading') : t('bar.shortcut', { key })
 )
-void props
 </script>
 
 <template>

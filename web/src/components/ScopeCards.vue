@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { Select } from '@element-plus/icons-vue'
-import type { ProjectType } from '@/api'
+import type { ScopeView } from '@/lib/scope'
 
-defineProps<{ types: ProjectType[]; label: string }>()
+defineProps<{ types: ScopeView[]; label: string }>()
 const model = defineModel<string>({ required: true })
 </script>
 

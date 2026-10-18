@@ -1,86 +1,150 @@
 /**
- * metadata 结构贴近 Spring Initializr v2.2（Accept: application/vnd.initializr.v2.2+json）。
- * 以 `x-` 注释标出的字段是 mugsun 扩展，需要和平台后端对齐。
+ * 接口类型，按平台后端约定 v1（start-mugsun-slices-2026-10-18.md §4）。
+ * Web UI 只调用 /api/v1/* 与 /starter.zip。
  */
-export interface Link { href: string; templated?: boolean }
+export type TypeId = 'mugsun-backend' | 'mugsun-fullstack' | (string & {})
 
-export interface SelectOption { id: string; name: string; description?: string }
+/** 中英文文案对象 */
+export interface L10n { zh: string; en: string }
 
-export interface SingleSelect<T extends SelectOption = SelectOption> {
-  type: 'single-select'
-  default: string
-  values: T[]
-}
-
-export interface TextField { type: 'text'; default?: string }
-
-/** initializr 的 type 字段（action 类型）；mugsun 用它表达「生成范围」 */
-export interface ProjectType extends SelectOption {
+export interface ProjectType {
+  id: TypeId
+  name: L10n
+  description: L10n
   action: string
   tags: Record<string, string>
+  default?: boolean
 }
 
-export interface Dependency extends SelectOption {
-  /** initializr 原生：可用的 Boot 版本范围 */
-  versionRange?: string
-  _links?: { reference?: Link; guide?: Link }
-  /** x-mugsun 扩展：常驻模块，不可取消 */
+export interface FieldSpec {
+  default?: string | L10n
+  pattern?: string
+  maxLength?: number
   required?: boolean
-  /** x-mugsun 扩展：Element Plus 图标名 */
-  icon?: string
-  /** x-mugsun 扩展：适用的生成范围（type id）；缺省为全部 */
-  types?: string[]
-  /** 后端可能追加的字段，前端暂时忽略 */
-  alwaysOn?: boolean
-  removableIn?: string[]
+  /** 例如 "artifactId"、"groupId+artifactId" */
+  follows?: string
 }
 
-export interface DependencyGroup { name: string; values: Dependency[] }
+export type FieldName = 'groupId' | 'artifactId' | 'name' | 'packageName' | 'description' | 'version'
+export type Fields = Partial<Record<FieldName, FieldSpec>>
+
+export interface Option { id: string; name: string }
+export interface ReadOnlySelect { default: string; values: Option[]; readOnly?: boolean; note?: L10n }
+
+export interface AlwaysOnModule {
+  id: string
+  icon?: string
+  name: L10n
+  description: L10n
+  removableIn: string | null
+}
+
+export interface OptionalModule {
+  id: string
+  group?: string
+  icon?: string
+  name: L10n
+  description: L10n
+  default?: boolean
+  appliesTo: TypeId[]
+  requires: string[]
+  conflicts: string[]
+  notes?: { backendOnly?: L10n }
+  links?: { reference?: string }
+  maven?: { groupId: string; artifactId: string }
+  pc?: { dir: string; npmRemove: string[] }
+}
+
+export interface PostGenerate {
+  requirements: Record<string, string[]>
+  /** 命令中的 {artifactId} 由前端替换 */
+  commands: Record<string, string[]>
+  docs: string
+}
 
 export interface Metadata {
-  _links?: Record<string, Link>
-  dependencies: { type: 'hierarchical-multi-select'; values: DependencyGroup[] }
-  type: { type: 'action'; default: string; values: ProjectType[] }
-  packaging: SingleSelect
-  javaVersion: SingleSelect
-  language: SingleSelect
-  bootVersion: SingleSelect
-  groupId: TextField
-  artifactId: TextField
-  version: TextField
-  name: TextField
-  description: TextField
-  packageName: TextField
-  /** x-mugsun 扩展：数据库，一期只有 postgresql */
-  database: SingleSelect
+  version: string
+  templates?: { boot?: string; pc?: string }
+  types: ProjectType[]
+  fields: Fields
+  bootVersion: ReadOnlySelect
+  javaVersion: ReadOnlySelect
+  packaging: ReadOnlySelect
+  database: ReadOnlySelect
+  modules: { alwaysOn: AlwaysOnModule[]; optional: OptionalModule[] }
+  postGenerate: PostGenerate
 }
 
-/** 发往 /starter.zip 的参数，与 initializr 的 query 参数同名 */
+/** §4.2 生成参数；preview 的 JSON body 字段相同 */
 export interface ProjectRequest {
-  type: string
+  type: TypeId
   groupId: string
   artifactId: string
   name: string
-  packageName: string
   description: string
+  packageName: string
+  version?: string
+  /** 只放可选模块（gis/track/ai），常驻项不传 */
   dependencies: string[]
   bootVersion?: string
   javaVersion?: string
   packaging?: string
-  language?: string
-  /** x-mugsun 扩展 */
-  database: string
+  database?: string
+  baseDir?: string
+}
+
+/** §4.3 预览 */
+export interface PreviewNode {
+  name: string
+  path: string
+  type: 'dir' | 'file'
+  size?: number
+  module?: string | null
+  /** truncated 时目录节点只给数量，不给 children */
+  childCount?: number
+  children?: PreviewNode[]
+}
+
+export interface PreviewResult {
+  requestId: string
+  root: string
+  fileCount: number
+  dirCount: number
+  truncated?: boolean
+  tree: PreviewNode[]
 }
 
 export interface GenerateResult { blob: Blob; fileName: string; requestId: string }
 
+/** §4.4 错误体 */
+export interface ErrorDetail { field: string; message: string }
+export interface ErrorBody { code: string; message: string; requestId?: string; timestamp?: string; details?: ErrorDetail[] }
+
+export type ErrorCode =
+  | 'INVALID_PARAMETER' | 'UNKNOWN_DEPENDENCY' | 'UNSUPPORTED_OPTION' | 'DEPENDENCY_NOT_APPLICABLE'
+  | 'DEPENDENCY_CONFLICT' | 'DEPENDENCY_REQUIRES' | 'RATE_LIMITED' | 'GENERATION_FAILED' | 'TEMPLATE_UNAVAILABLE'
+  /** 以下为前端自定义 */
+  | 'TIMEOUT' | 'NETWORK' | 'BAD_RESPONSE' | (string & {})
+
 export class ApiError extends Error {
-  constructor(message: string, public status: number, public requestId?: string) {
+  constructor(
+    public status: number,
+    public code: ErrorCode,
+    message: string,
+    public requestId?: string,
+    public details: ErrorDetail[] = [],
+    /** 429 时 Retry-After 换算的秒数 */
+    public retryAfter?: number
+  ) {
     super(message)
+    this.name = 'ApiError'
   }
 }
 
+export interface CallOptions { locale: string; signal?: AbortSignal; timeoutMs?: number }
+
 export interface StartApi {
-  getMetadata(locale: string): Promise<Metadata>
-  generate(req: ProjectRequest): Promise<GenerateResult>
+  getMetadata(o: CallOptions): Promise<Metadata>
+  preview(req: ProjectRequest, o: CallOptions): Promise<PreviewResult>
+  generate(req: ProjectRequest, o: CallOptions): Promise<GenerateResult>
 }
