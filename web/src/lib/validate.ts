@@ -1,10 +1,14 @@
 import type { FieldSpec } from '@/api'
 
-/** Java 关键字（含 var/record/yield 等上下文关键字，作包名段同样不可用） */
+/**
+ * 与后端一致：javax.lang.model.SourceVersion.isKeyword(s, RELEASE_21)。
+ * 即 JLS 21 §3.9 的 51 个保留关键字（含 const、goto、strictfp 和 Java 9 起的 _）；
+ * 上下文关键字（var、record、yield、sealed、permits、module 等）不算，可以作包名段。
+ */
 export const JAVA_KEYWORDS: ReadonlySet<string> = new Set(
-  'abstract assert boolean break byte case catch char class const continue default do double else enum extends final finally float for goto if implements import instanceof int interface long native new package private protected public return short static strictfp super switch synchronized this throw throws transient try void volatile while var record yield'.split(' ')
+  'abstract assert boolean break byte case catch char class const continue default do double else enum extends final finally float for goto if implements import instanceof int interface long native new package private protected public return short static strictfp super switch synchronized this throw throws transient try void volatile while _'.split(' ')
 )
-/** 字面量，同样不能作包名段 */
+/** 字面量（isKeyword 对它们同样返回 true），不能作包名段 */
 export const JAVA_LITERALS: ReadonlySet<string> = new Set(['true', 'false', 'null'])
 export const isReservedSegment = (s: string) => JAVA_KEYWORDS.has(s) || JAVA_LITERALS.has(s)
 
