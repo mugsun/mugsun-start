@@ -152,6 +152,25 @@ class PreviewApiTests {
 	}
 
 	@Test
+	@DisplayName("成功响应 Content-Type 带 charset=UTF-8（GET 与 POST，与错误体一致）")
+	void successContentTypeHasUtf8Charset() throws Exception {
+		for (MvcResult result : List.of(perform(previewPost(Map.of("artifactId", "shop"))),
+				perform(get("/api/v1/preview").param("artifactId", "shop")),
+				perform(get("/api/v1/preview").accept(MediaType.APPLICATION_JSON)))) {
+			assertThat(result.getResponse().getStatus()).isEqualTo(200);
+			assertThat(MediaType.parseMediaType(result.getResponse().getContentType()))
+				.satisfies((type) -> assertThat(type.isCompatibleWith(MediaType.APPLICATION_JSON)).isTrue())
+				.satisfies((type) -> assertThat(type.getCharset()).isEqualTo(java.nio.charset.StandardCharsets.UTF_8));
+		}
+	}
+
+	@Test
+	@DisplayName("缓存总权重缺省上限为 200000 个节点（约 100MB）")
+	void defaultMaxWeight() {
+		assertThat(this.guard.maxWeight()).isEqualTo(200_000L).isEqualTo(PreviewGuard.DEFAULT_MAX_WEIGHT);
+	}
+
+	@Test
 	@DisplayName("空请求体与 GET 无参数都用 metadata 默认值")
 	void defaults() throws Exception {
 		JsonNode post = json(perform(post("/api/v1/preview").contentType(MediaType.APPLICATION_JSON).content("{}")));

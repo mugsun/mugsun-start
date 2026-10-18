@@ -31,6 +31,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/preview")
 public class PreviewController {
 
+	/** 与错误体一致：{@code application/json;charset=UTF-8} */
+	static final String JSON_UTF8 = MediaType.APPLICATION_JSON_VALUE + ";charset=UTF-8";
+
 	private final InitializrMetadataProvider metadataProvider;
 
 	private final ProjectGenerationInvoker<MugsunProjectRequest> invoker;
@@ -57,13 +60,13 @@ public class PreviewController {
 		return request;
 	}
 
-	@GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
+	@GetMapping(produces = PreviewController.JSON_UTF8)
 	public Map<String, Object> previewGet(@ModelAttribute("projectRequest") MugsunProjectRequest request,
 			HttpServletRequest http) {
 		return preview(request, http);
 	}
 
-	@PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+	@PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = PreviewController.JSON_UTF8)
 	public Map<String, Object> previewPost(@RequestHeader Map<String, String> headers,
 			@RequestBody(required = false) PreviewBody body, HttpServletRequest http) {
 		MugsunProjectRequest request = projectRequest(headers);
