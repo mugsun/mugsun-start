@@ -25,11 +25,14 @@ import org.springframework.stereotype.Component;
  * 按权重淘汰：每条的权重是 {@code fileCount + dirCount}（节点数），总权重上限 {@code cache.max-weight}，
  * 大工程不会因为「条数」上限而把内存撑大。只缓存生成成功的结果；校验失败、生成失败直接抛出，不进缓存。命中时不占并发名额。</li>
  * </ul>
- * 配置项：{@code mugsun.start.preview.cache.max-weight}（节点总数，默认 1000000）、{@code mugsun.start.preview.cache.ttl}（默认 10m）、
+ * 配置项：{@code mugsun.start.preview.cache.max-weight}（节点总数，默认 200000，按每个节点约 500 字节估算约 100MB）、{@code mugsun.start.preview.cache.ttl}（默认 10m）、
  * {@code mugsun.start.preview.max-concurrent}（默认 4，预览与下载共用）、{@code mugsun.start.preview.acquire-timeout}（默认 2s）。
  */
 @Component
 public class PreviewGuard {
+
+	/** 缓存总权重（节点数）缺省上限：200000 个节点，按每个节点约 500 字节估算约 100MB 堆 */
+	public static final long DEFAULT_MAX_WEIGHT = 200_000L;
 
 	private final Cache<String, PreviewTree.Result> cache;
 
@@ -39,7 +42,7 @@ public class PreviewGuard {
 
 	private final Duration acquireTimeout;
 
-	public PreviewGuard(@Value("${mugsun.start.preview.cache.max-weight:1000000}") long maxWeight,
+	public PreviewGuard(@Value("${mugsun.start.preview.cache.max-weight:" + PreviewGuard.DEFAULT_MAX_WEIGHT + "}") long maxWeight,
 			@Value("${mugsun.start.preview.cache.ttl:10m}") Duration ttl,
 			@Value("${mugsun.start.preview.max-concurrent:4}") int maxConcurrent,
 			@Value("${mugsun.start.preview.acquire-timeout:2s}") Duration acquireTimeout) {
@@ -119,6 +122,11 @@ public class PreviewGuard {
 	}
 
 	/** 当前缓存的总权重（节点数），测试与排查用。 */
+	/** 缓存总权重上限（节点数），即生效的 {@code cache.max-weight} */
+	public long maxWeight() {
+		return this.cache.policy().eviction().orElseThrow().getMaximum();
+	}
+
 	public long weightedSize() {
 		this.cache.cleanUp();
 		return this.cache.policy().eviction().map((e) -> e.weightedSize().orElse(0)).orElse(0L);
