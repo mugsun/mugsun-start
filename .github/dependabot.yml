@@ -1,4 +1,4 @@
-# GitHub Actions 已全部钉到 commit SHA（#6）；由 Dependabot 每周检查新版本并提 PR，同时更新 SHA 和版本注释。
+# GitHub Actions 已全部钉到 commit SHA（#6）；由 Dependabot 每周检查新版本并提 PR，同时更新 SHA 和版本注释。server/ 的 Maven 依赖同样每周检查。
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -14,3 +14,29 @@ updates:
           - "*"
     commit-message:
       prefix: ci
+
+  # server/ 的 Maven 依赖（Spring Boot 父 POM、initializr BOM 等）。web/（npm）等 #3 合并后再加。
+  - package-ecosystem: maven
+    directory: /server
+    schedule:
+      interval: weekly
+      day: monday
+      timezone: Asia/Shanghai
+    open-pull-requests-limit: 5
+    groups:
+      # Spring Boot 与 initializr 一起升（initializr 跟随 Boot 发版），只收小版本与补丁
+      spring-boot-and-initializr:
+        patterns:
+          - "org.springframework.boot:spring-boot*"
+          - "io.spring.initializr:*"
+        update-types:
+          - minor
+          - patch
+      # 所有大版本升级单独成组，不与日常升级混在一起
+      major:
+        patterns:
+          - "*"
+        update-types:
+          - major
+    commit-message:
+      prefix: build
