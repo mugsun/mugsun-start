@@ -1,0 +1,135 @@
+server:
+  port: ${MUGSUN_START_PORT:8080}
+  # 生成接口会返回 zip，压缩对其无益；元数据 JSON 由反向代理压缩
+  shutdown: graceful
+
+spring:
+  application:
+    name: mugsun-start
+  # 生成服务不碰数据库/缓存，也不需要会话
+  main:
+    banner-mode: off
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+# ---------------------------------------------------------------------------
+# Spring Initializr 元数据（标准 /metadata/client 与 /starter.zip 使用）
+# 注意：依赖坐标指向 com.mugsun:mugsun-boot-*，这些构件尚未发布到 Maven Central（D1 未决），
+#       S4 之前生成的 zip 只是 Initializr 默认工程骨架，不能直接运行。
+# ---------------------------------------------------------------------------
+initializr:
+  group-id:
+    value: com.example
+  artifact-id:
+    value: demo
+  name:
+    value: demo
+  description:
+    value: 基于 mugsun 的管理系统
+  package-name:
+    value: com.example.demo
+  version:
+    value: 0.0.1-SNAPSHOT
+  types:
+    - name: 仅后端
+      id: maven-project
+      description: mugsun-boot 后端工程（Spring Boot 3.5、JDK 21）
+      tags:
+        build: maven
+        format: project
+        scope: backend
+      default: false
+      action: /starter.zip
+    - name: 前后端
+      id: mugsun-fullstack
+      description: mugsun-boot 后端 + mugsun-pc 管理台（Vue 3）
+      tags:
+        build: maven
+        format: project
+        scope: fullstack
+      default: true
+      action: /starter.zip
+  packagings:
+    - name: Jar
+      id: jar
+      default: true
+  javaVersions:
+    - id: 21
+      default: true
+  languages:
+    - name: Java
+      id: java
+      default: true
+  configurationFileFormats:
+    - name: YAML
+      id: yaml
+      default: true
+  bootVersions:
+    - id: 3.5.13
+      name: 3.5.13
+      default: true
+  dependencies:
+    # values[0]：常驻模块（一期不可去掉；生成时总会带上 mugsun-boot-core）
+    - name: 常驻模块
+      groupId: com.mugsun
+      artifactId: mugsun-boot-core
+      starter: false
+      content:
+        - id: mugsun-system
+          name: 系统管理与多租户
+          description: 用户、角色、菜单、部门、岗位、多租户、字典与参数
+        - id: mugsun-security
+          name: 认证与安全
+          description: 登录、验证码、双因子、密码策略、国密、XSS 与脱敏
+        - id: mugsun-audit
+          name: 日志与审计
+          description: 操作日志防篡改、登录日志、访问日志留存
+        - id: mugsun-file-msg
+          name: 文件与消息
+          description: 文件与对象存储、短信、邮件、通知与站内信
+        - id: mugsun-workflow
+          name: 工作流
+          description: 基于 warm-flow 的流程设计、审批与待办
+        - id: mugsun-lowcode
+          name: 低代码与代码生成
+          description: 代码生成、在线表单、表单设计器
+        - id: mugsun-open
+          name: 开放平台与社交登录
+          description: OAuth2 客户端、API Key、调用日志、第三方登录
+        - id: mugsun-ops
+          name: 定时任务与监控
+          description: PowerJob 定时任务、健康检查与指标、在线用户
+    # values[1]：可选模块
+    - name: 可选模块
+      groupId: com.mugsun
+      starter: false
+      content:
+        - id: mugsun-gis
+          name: GIS
+          artifactId: mugsun-boot-gis
+          description: 地图、图层、地理围栏
+          links:
+            - rel: reference
+              href: https://docs.mugsun.com/boot/
+        - id: mugsun-track
+          name: 埋点
+          artifactId: mugsun-boot-track
+          description: 浏览器埋点 SDK 与分析看板
+          links:
+            - rel: reference
+              href: https://docs.mugsun.com/track/
+        - id: mugsun-ai
+          name: AI
+          artifactId: mugsun-boot-ai
+          description: 模型接入、对话、知识库
+          links:
+            - rel: reference
+              href: https://docs.mugsun.com/boot/
