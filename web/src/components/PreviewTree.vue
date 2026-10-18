@@ -5,6 +5,7 @@ import { useDebounceFn, useMediaQuery } from '@vueuse/core'
 import { Folder, FolderOpened, Document, WarningFilled } from '@element-plus/icons-vue'
 import { form, metaState, preview, previewState, previewError, loadPreview, optional } from '@/lib/store'
 import { loc } from '@/lib/l10n'
+import { formDetails } from '@/lib/fieldErrors'
 import type { PreviewNode } from '@/api'
 
 const { t, locale } = useI18n()
@@ -65,8 +66,8 @@ onBeforeUnmount(() => { clearTimeout(hlTimer); clearTimeout(skTimer) })
       </template>
       <div v-else-if="previewState === 'error' && !preview" class="perr" role="alert">
         <el-icon :size="28" class="err-icon" aria-hidden="true"><WarningFilled /></el-icon>
-        <span>{{ previewError?.code === 'INVALID_PARAMETER' ? t('preview.invalid') : previewError?.code === 'UNSUPPORTED_OPTION' ? t('preview.unsupported') : t('preview.error') }}</span>
-        <span v-if="previewError?.requestId" class="rid">{{ t('preview.requestId', { id: previewError.requestId }) }}</span>
+        <span>{{ previewError?.code === 'INVALID_PARAMETER' ? (formDetails(previewError.details).length ? t('preview.invalid') : t('bar.invalidOther', { id: previewError.requestId || '-' })) : previewError?.code === 'UNSUPPORTED_OPTION' ? t('preview.unsupported') : t('preview.error') }}</span>
+        <span v-if="previewError?.requestId && !(previewError.code === 'INVALID_PARAMETER' && !formDetails(previewError.details).length)" class="rid">{{ t('preview.requestId', { id: previewError.requestId }) }}</span>
         <el-button size="small" @click="loadPreview()">{{ t('modules.retry') }}</el-button>
       </div>
       <el-empty v-else-if="!tree.length" :description="t('preview.empty')" :image-size="64" />

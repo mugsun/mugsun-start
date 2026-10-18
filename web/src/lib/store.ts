@@ -6,7 +6,7 @@ import { fromQuery } from './share'
 import { resolveScopeTypes, defaultType, FULLSTACK } from './scope'
 import { FALLBACK_FIELDS, FALLBACK_POSTGEN, FALLBACK_TYPES } from './defaults'
 import { loc } from './l10n'
-import { fieldErrorKey } from './fieldErrors'
+import { fieldErrorKey, formDetails, FORM_FIELDS } from './fieldErrors'
 import { safeServerMessage } from './messageGuard'
 import { i18n } from '@/i18n'
 
@@ -117,11 +117,11 @@ export function toRequest(): ProjectRequest {
   }
 }
 
-export const FORM_FIELDS: readonly FieldName[] = ['groupId', 'artifactId', 'name', 'packageName', 'description']
+export { FORM_FIELDS }
 /** §4.4：INVALID_PARAMETER 的 details 回填到表单字段（preview 与 generate 共用），返回映射上的条数 */
 export function applyServerErrors(e: unknown): number {
   if (!(e instanceof ApiError) || e.code !== 'INVALID_PARAMETER') return 0
-  const mapped = e.details.filter((d) => FORM_FIELDS.includes(d.field as FieldName))
+  const mapped = formDetails(e.details)
   // 优先服务端 message（过同一道守卫）；不通过再按 field+reason 走前端文案
   for (const d of mapped) {
     const msg = safeServerMessage(d.message, { locale: locale(), status: e.status, code: e.code, requestId: e.requestId, field: d.field })

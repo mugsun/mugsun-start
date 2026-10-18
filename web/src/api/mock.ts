@@ -14,6 +14,8 @@
  *   gen-stack     生成返回 400 INVALID_PARAMETER（field=request），message 是英文 Java 堆栈（看前端守卫）
  *   gen-invalid-noreason 生成返回 INVALID_PARAMETER，details 只有 reason、message 为空
  *   gen-invalid-other 生成返回 400 INVALID_PARAMETER，但 field 不在表单里（baseDir）
+ *   preview-body-invalid 预览返回 400 INVALID_PARAMETER，details [{field:"body",reason:"invalid"}]（#5：JSON 解析失败）
+ *   preview-modules 预览节点带 module（S4 计划字段，#5 不返回；默认不带）
  *   请求里出现非默认的 bootVersion/javaVersion/packaging/language/configurationFileFormat 也返回 UNSUPPORTED_OPTION
  */
 import { isReservedSegment } from '../lib/validate'
@@ -121,7 +123,7 @@ export function previewPaths(req: ProjectRequest): [string, string | null][] {
 }
 
 /** 路径列表 → §4.3 的树（目录在前，同类按名称升序） */
-export function toTree(entries: [string, string | null][]): PreviewNode[] {
+export function toTree(entries: [string, string | null][], withModules = false): PreviewNode[] {
   const root: PreviewNode = { name: '', path: '', type: 'dir', children: [] }
   for (const [p, mod] of entries) {
     const parts = p.split('/')
@@ -131,11 +133,11 @@ export function toTree(entries: [string, string | null][]): PreviewNode[] {
       const isFile = i === parts.length - 1
       let next = cur.children!.find((c) => c.name === name)
       if (!next) {
-        next = isFile ? { name, path, type: 'file', size: 1024, module: mod } : { name, path, type: 'dir', module: null, children: [] }
+        next = isFile ? { name, path, type: 'file', size: 1024, ...(withModules && mod ? { module: mod } : {}) } : { name, path, type: 'dir', children: [] }
         cur.children!.push(next)
       }
       // 模块独占目录（modules/<f>）标上模块
-      if (!isFile && mod && path.endsWith(`/modules/${mod}`)) next.module = mod
+      if (withModules && !isFile && mod && path.endsWith(`/modules/${mod}`)) next.module = mod
       cur = next
     })
   }
@@ -147,9 +149,10 @@ export function toTree(entries: [string, string | null][]): PreviewNode[] {
   return root.children!
 }
 
-export function buildPreview(req: ProjectRequest, requestId: string): PreviewResult {
+/** 对齐 #5 PreviewController：{requestId, root, fileCount, dirCount, truncated, tree}；节点 name/path/type/size，无 module */
+export function buildPreview(req: ProjectRequest, requestId: string, withModules = false): PreviewResult {
   const entries = previewPaths(req)
-  const tree = toTree(entries)
+  const tree = toTree(entries, withModules)
   let dirs = 0
   const walk = (n: PreviewNode[]) => n.forEach((x) => { if (x.type === 'dir') { dirs++; walk(x.children ?? []) } })
   walk(tree)
@@ -175,7 +178,8 @@ const DETAIL: Record<string, L10n> = {
   'packageName.pattern': l('包名须由小写字母、数字和下划线组成的段以点连接，各段不能以数字开头。', 'The package name must be dot-separated segments of lowercase letters, digits and underscores that do not start with a digit.'),
   'packageName.keyword': l('包名中的 {0} 是 Java 关键字或保留字面量，不能用作包名的一段。', 'The segment {0} is a Java keyword or literal and cannot be used in a package name.'),
   'description.maxLength': l('描述最长 200 个字符。', 'The description can be up to 200 characters.'),
-  'baseDir.pattern': l('根目录名只能包含字母、数字、点、下划线和连字符，最长 64 个字符。', 'The root folder name can only contain letters, digits, dots, underscores and hyphens, up to 64 characters.')
+  'baseDir.pattern': l('根目录名只能包含字母、数字、点、下划线和连字符，最长 64 个字符。', 'The root folder name can only contain letters, digits, dots, underscores and hyphens, up to 64 characters.'),
+  'body.invalid': l('请求体不是有效的 JSON，或字段类型不正确。', 'The request body is not valid JSON, or a field has the wrong type.')
 }
 const ERROR: Record<string, L10n> = {
   INVALID_PARAMETER: l('请求参数不符合要求，请检查标出的字段。', 'Some parameters are invalid. Check the fields listed in details.'),
@@ -295,10 +299,11 @@ export async function mockFetch(url: string, init?: RequestInit): Promise<Respon
   if (path === '/api/v1/preview') {
     await wait(120, signal)
     if (mode === 'preview-error') return problemResponse(500, 'GENERATION_FAILED', [], lang, id)
+    if (mode === 'preview-body-invalid') return problemResponse(400, 'INVALID_PARAMETER', [{ field: 'body', reason: 'invalid' }], lang, id)
     const req = readRequest(init)
     const bad = serverCheck(req, lang, id)
     if (bad) return bad
-    return json(200, buildPreview(req, id), id)
+    return json(200, buildPreview(req, id, mode === 'preview-modules'), id)
   }
   if (path === '/starter.zip') {
     if (mode === 'gen-slow') await hang(signal)

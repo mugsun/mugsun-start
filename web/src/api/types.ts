@@ -97,6 +97,7 @@ export interface PreviewNode {
   path: string
   type: 'dir' | 'file'
   size?: number
+  /** S4 才有（#5 未返回）：前端只作可选装饰，不依赖 */
   module?: string | null
   /** truncated 时目录节点只给数量，不给 children */
   childCount?: number

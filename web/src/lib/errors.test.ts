@@ -18,10 +18,14 @@ describe('generate error message', () => {
     expect(zh(e('DEPENDENCY_CONFLICT', '所选模块之间存在冲突：gis。', 409))).toBe('所选模块之间存在冲突：gis。（错误编号：r-1）')
     expect(en(e('UNSUPPORTED_OPTION', 'This option is not supported in phase 1: 3.4.0.'))).toBe('This option is not supported in phase 1: 3.4.0. (Error ID: r-1)')
   })
-  it('field="request" shows the server message as a generic error (guarded)', () => {
-    const req = (m: string) => e('INVALID_PARAMETER', m, 400, [{ field: 'request', reason: 'invalid', message: m }])
-    expect(zh(req('请求参数不正确。'))).toBe('请求参数不正确。（错误编号：r-1）')
-    expect(zh(req('java.lang.IllegalStateException: x\n\tat a.B'))).toBe('请求参数有误，请检查项目信息后重试（错误编号：r-1）')
+  it('INVALID_PARAMETER on fields outside the form (request/body/baseDir/…) always uses bar.invalidOther', () => {
+    const other = (field: string, m: string) => e('INVALID_PARAMETER', m, 400, [{ field, reason: 'invalid', message: m }])
+    for (const f of ['request', 'body', 'baseDir', 'dependencies', 'whatever']) {
+      expect(zh(other(f, '请求参数不符合要求，请检查标出的字段。'))).toBe('请求参数有误，请检查项目信息后重试（错误编号：r-1）')
+      expect(en(other(f, 'Some parameters are invalid. Check the fields listed in details.'))).toBe('Invalid request. Check the project details and try again (Error ID: r-1)')
+    }
+    expect(zh(other('request', 'java.lang.IllegalStateException: x\n\tat a.B'))).toBe('请求参数有误，请检查项目信息后重试（错误编号：r-1）')
+    expect(zh(e('INVALID_PARAMETER', '请求参数不符合要求。', 400, []))).toBe('请求参数有误，请检查项目信息后重试（错误编号：r-1）')
   })
   it('guard failures fall back to frontend text by code', () => {
     expect(zh(e('UNKNOWN_DEPENDENCY', '  '))).toBe('包含不存在的模块，请刷新页面后重试（错误编号：r-1）')

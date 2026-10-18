@@ -54,8 +54,16 @@ describe('mock preview (§4.3, structure = §4.2 zip)', () => {
     expect(p.fileCount).toBe(flat(p.tree).filter((n) => n.type === 'file').length)
     expect(p.truncated).toBe(false)
   })
-  it('fullstack: module dirs tagged; dirs first', () => {
+  it('default nodes match #5 (name/path/type[/size], no module); dirs first', () => {
     const p = buildPreview({ ...base, dependencies: ['gis'] }, 'r')
+    expect(Object.keys(p)).toEqual(['requestId', 'root', 'fileCount', 'dirCount', 'truncated', 'tree'])
+    const nodes = flat(p.tree)
+    expect(nodes.every((n) => !('module' in n))).toBe(true)
+    for (const n of nodes) expect(Object.keys(n)).toEqual(n.type === 'file' ? ['name', 'path', 'type', 'size'] : ['name', 'path', 'type', 'children'])
+    expect(p.tree[0].children![0].type).toBe('dir')
+  })
+  it('preview-modules mode: module dirs tagged (S4 plan, optional)', () => {
+    const p = buildPreview({ ...base, dependencies: ['gis'] }, 'r', true)
     const nodes = flat(p.tree)
     expect(nodes.find((n) => n.path === 'demo/demo-pc/modules/gis')?.module).toBe('gis')
     expect(nodes.find((n) => n.path === 'demo/demo-pc/modules/gis/routes.ts')?.module).toBe('gis')
@@ -98,6 +106,12 @@ describe('mock via http api', () => {
     expect(e).toMatchObject({ status: 400, code: 'UNSUPPORTED_OPTION' })
     setMockMode('gen-unsupported')
     expect(await api.generate(base, { locale: 'en' }).catch((x) => x)).toMatchObject({ code: 'UNSUPPORTED_OPTION' })
+  })
+  it('preview-body-invalid: 400 INVALID_PARAMETER with details [{field:"body",reason:"invalid"}] (#5 JSON parse error)', async () => {
+    setMockMode('preview-body-invalid')
+    const e = await api.preview(base, { locale: 'zh-CN' }).catch((x) => x)
+    expect(e).toMatchObject({ status: 400, code: 'INVALID_PARAMETER' })
+    expect(e.details).toEqual([{ field: 'body', reason: 'invalid', message: '请求体不是有效的 JSON，或字段类型不正确。' }])
   })
   it('UNKNOWN_DEPENDENCY and an INVALID_PARAMETER field outside the form', async () => {
     expect(await api.generate({ ...base, dependencies: ['legacy'] }, { locale: 'zh-CN' }).catch((x) => x)).toMatchObject({ code: 'UNKNOWN_DEPENDENCY', message: '未知的模块：legacy。' })

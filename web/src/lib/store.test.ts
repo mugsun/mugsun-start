@@ -124,6 +124,8 @@ describe('server field errors', () => {
   })
   it('ignores unknown fields and other codes', () => {
     expect(s.applyServerErrors(invalid(['bootVersion']))).toBe(0)
+    expect(s.applyServerErrors(invalid(['body']))).toBe(0)
+    expect(s.applyServerErrors(invalid(['request', 'baseDir']))).toBe(0)
     expect(s.applyServerErrors(new ApiError(400, 'UNSUPPORTED_OPTION', 'm', 'r', [{ field: 'packageName', message: 'x' }]))).toBe(0)
     expect(s.serverErrors.packageName).toBeUndefined()
     expect(s.applyServerErrors(invalid(['packageName']))).toBe(1)
