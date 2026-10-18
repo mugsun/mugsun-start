@@ -13,6 +13,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /**
  * S2：{@code mugsun.start.*} 与 initializr 元数据不一致时启动失败。
  * <p>
+ * 不要在这里关日志（logging.level.root=OFF）：Logback 是 JVM 级单例，会影响同一 JVM 里缓存的测试上下文。
  * 命令行参数中的列表下标会整体替换 yml 中的列表，因此每个用例只改 {@code optional[0]}。
  */
 class MetadataConsistencyTests {
@@ -30,7 +31,7 @@ class MetadataConsistencyTests {
 	void failsOnInconsistentConfiguration(String scenario, String property, String expected) {
 		SpringApplicationBuilder app = new SpringApplicationBuilder(MugsunStartApplication.class)
 			.web(WebApplicationType.NONE)
-			.properties("spring.main.banner-mode=off", "logging.level.root=OFF");
+			.properties("spring.main.banner-mode=off");
 		assertThatThrownBy(() -> app.run("--" + property)).hasRootCauseInstanceOf(IllegalStateException.class)
 			.rootCause()
 			.hasMessageContaining(expected);
