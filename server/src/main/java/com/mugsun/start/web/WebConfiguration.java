@@ -43,8 +43,8 @@ public class WebConfiguration implements WebMvcConfigurer {
 	/** 同类型 bean 存在时 initializr 的默认控制器不再注册（@ConditionalOnMissingBean）。 */
 	@Bean
 	public MugsunProjectGenerationController projectGenerationController(InitializrMetadataProvider metadataProvider,
-			ProjectGenerationInvoker<MugsunProjectRequest> invoker, ErrorResponses errors) {
-		return new MugsunProjectGenerationController(metadataProvider, invoker, errors);
+			ProjectGenerationInvoker<MugsunProjectRequest> invoker, ErrorResponses errors, PreviewGuard guard) {
+		return new MugsunProjectGenerationController(metadataProvider, invoker, errors, guard);
 	}
 
 	@Bean(DispatcherServlet.LOCALE_RESOLVER_BEAN_NAME)

@@ -16,15 +16,17 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /**
- * 预览的结果缓存与并发上限。
+ * 工程生成的并发上限，以及预览的结果缓存。
  * <ul>
- * <li>缓存：Caffeine，键是规范化后的请求参数（依赖排序去重，不含请求头），值是遍历好的树（不含 requestId）。
- * 只缓存生成成功的结果；校验失败、生成失败直接抛出，不进缓存。命中时不占并发名额。</li>
- * <li>并发：{@link Semaphore} 限制同时在跑的生成数；等待 {@code acquire-timeout} 仍拿不到名额时返回 429
+ * <li>并发：一个 {@link Semaphore} 限制同时在跑的生成数，预览（未命中缓存时）与 {@code /starter.zip}、{@code /starter.tgz}
+ * 共用这一组名额（见 {@link #withPermit(Work)}）；等待 {@code acquire-timeout} 仍拿不到名额时返回 429
  * {@code RATE_LIMITED}（带 {@code Retry-After}），不让请求在线程池里无限排队。</li>
+ * <li>预览缓存：Caffeine，键是规范化后的请求参数（依赖排序去重，不含请求头），值是遍历好的树（不含 requestId，不可变）。
+ * 按权重淘汰：每条的权重是 {@code fileCount + dirCount}（节点数），总权重上限 {@code cache.max-weight}，
+ * 大工程不会因为「条数」上限而把内存撑大。只缓存生成成功的结果；校验失败、生成失败直接抛出，不进缓存。命中时不占并发名额。</li>
  * </ul>
- * 配置项：{@code mugsun.start.preview.cache.max-size}（默认 500）、{@code mugsun.start.preview.cache.ttl}（默认 10m）、
- * {@code mugsun.start.preview.max-concurrent}（默认 4）、{@code mugsun.start.preview.acquire-timeout}（默认 2s）。
+ * 配置项：{@code mugsun.start.preview.cache.max-weight}（节点总数，默认 1000000）、{@code mugsun.start.preview.cache.ttl}（默认 10m）、
+ * {@code mugsun.start.preview.max-concurrent}（默认 4，预览与下载共用）、{@code mugsun.start.preview.acquire-timeout}（默认 2s）。
  */
 @Component
 public class PreviewGuard {
@@ -37,15 +39,20 @@ public class PreviewGuard {
 
 	private final Duration acquireTimeout;
 
-	public PreviewGuard(@Value("${mugsun.start.preview.cache.max-size:500}") long maxSize,
+	public PreviewGuard(@Value("${mugsun.start.preview.cache.max-weight:1000000}") long maxWeight,
 			@Value("${mugsun.start.preview.cache.ttl:10m}") Duration ttl,
 			@Value("${mugsun.start.preview.max-concurrent:4}") int maxConcurrent,
 			@Value("${mugsun.start.preview.acquire-timeout:2s}") Duration acquireTimeout) {
-		if (maxSize < 0 || maxConcurrent < 1 || ttl.isNegative() || acquireTimeout.isNegative()) {
-			throw new IllegalArgumentException("mugsun.start.preview.*: max-size >= 0, max-concurrent >= 1, "
+		if (maxWeight < 0 || maxConcurrent < 1 || ttl.isNegative() || acquireTimeout.isNegative()) {
+			throw new IllegalArgumentException("mugsun.start.preview.*: max-weight >= 0, max-concurrent >= 1, "
 					+ "ttl and acquire-timeout must not be negative");
 		}
-		this.cache = Caffeine.newBuilder().maximumSize(maxSize).expireAfterWrite(ttl).recordStats().build();
+		this.cache = Caffeine.newBuilder()
+			.maximumWeight(maxWeight)
+			.weigher((String key, PreviewTree.Result value) -> weight(value))
+			.expireAfterWrite(ttl)
+			.recordStats()
+			.build();
 		this.permits = new Semaphore(maxConcurrent, true);
 		this.maxConcurrent = maxConcurrent;
 		this.acquireTimeout = acquireTimeout;
@@ -61,6 +68,31 @@ public class PreviewGuard {
 		if (cached != null) {
 			return cached;
 		}
+		return withPermit(() -> {
+			// 排队期间同一请求可能已被别的线程生成好
+			PreviewTree.Result again = this.cache.getIfPresent(key);
+			if (again != null) {
+				return again;
+			}
+			PreviewTree.Result result = Objects.requireNonNull(generate.get(), "preview result");
+			this.cache.put(key, result);
+			return result;
+		});
+	}
+
+	/** 可抛受检异常的生成动作（{@code /starter.zip} 的生成会抛 {@link java.io.IOException}）。 */
+	@FunctionalInterface
+	public interface Work<T, E extends Exception> {
+
+		T run() throws E;
+
+	}
+
+	/**
+	 * 在并发名额内执行一次生成：拿到名额才执行，执行完（含异常）归还。
+	 * @throws MugsunRequestException 等待 {@code acquire-timeout} 仍拿不到名额时（429 {@code RATE_LIMITED}，带 Retry-After）
+	 */
+	public <T, E extends Exception> T withPermit(Work<T, E> work) throws E {
 		boolean acquired;
 		try {
 			acquired = this.permits.tryAcquire(this.acquireTimeout.toMillis(), TimeUnit.MILLISECONDS);
@@ -73,18 +105,23 @@ public class PreviewGuard {
 			throw MugsunRequestException.rateLimited(retryAfterSeconds());
 		}
 		try {
-			// 排队期间同一请求可能已被别的线程生成好
-			cached = this.cache.getIfPresent(key);
-			if (cached != null) {
-				return cached;
-			}
-			PreviewTree.Result result = Objects.requireNonNull(generate.get(), "preview result");
-			this.cache.put(key, result);
-			return result;
+			return work.run();
 		}
 		finally {
 			this.permits.release();
 		}
+	}
+
+	/** 缓存权重：节点数（文件 + 目录），至少 1。 */
+	static int weight(PreviewTree.Result result) {
+		long nodes = (long) result.fileCount() + result.dirCount();
+		return (int) Math.max(1, Math.min(Integer.MAX_VALUE, nodes));
+	}
+
+	/** 当前缓存的总权重（节点数），测试与排查用。 */
+	public long weightedSize() {
+		this.cache.cleanUp();
+		return this.cache.policy().eviction().map((e) -> e.weightedSize().orElse(0)).orElse(0L);
 	}
 
 	private long retryAfterSeconds() {

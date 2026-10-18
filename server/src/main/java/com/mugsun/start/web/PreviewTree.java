@@ -6,6 +6,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.Deque;
 import java.util.LinkedHashMap;
@@ -29,8 +30,43 @@ final class PreviewTree {
 	private PreviewTree() {
 	}
 
-	/** 结果：顶层节点、文件数、目录数、是否截断。 */
+	/**
+	 * 结果：顶层节点、文件数、目录数、是否截断。
+	 * <p>树在构造时深拷贝成不可变结构（节点 Map 保持字段顺序），结果会进缓存、被多个请求共享，
+	 * 任何一方改动都会抛 {@link UnsupportedOperationException}，不会污染其他请求的响应。
+	 */
 	record Result(List<Map<String, Object>> tree, int fileCount, int dirCount, boolean truncated) {
+
+		Result {
+			tree = freezeList(tree);
+		}
+
+	}
+
+	@SuppressWarnings("unchecked")
+	private static Object freeze(Object value) {
+		if (value instanceof Map<?, ?> map) {
+			return freezeMap((Map<String, Object>) map);
+		}
+		if (value instanceof List<?> list) {
+			return freezeList((List<Map<String, Object>>) list);
+		}
+		return value;
+	}
+
+	private static Map<String, Object> freezeMap(Map<String, Object> map) {
+		Map<String, Object> copy = new LinkedHashMap<>();
+		map.forEach((k, v) -> copy.put(k, freeze(v)));
+		return Collections.unmodifiableMap(copy);
+	}
+
+	@SuppressWarnings("unchecked")
+	private static <T> List<T> freezeList(List<T> list) {
+		List<T> copy = new ArrayList<>(list.size());
+		for (T item : list) {
+			copy.add((T) freeze(item));
+		}
+		return Collections.unmodifiableList(copy);
 	}
 
 	private record Entry(String name, String path, boolean dir, long size, List<Entry> children) {

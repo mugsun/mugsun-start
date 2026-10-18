@@ -1,0 +1,16 @@
+# GitHub Actions 已全部钉到 commit SHA（#6）；由 Dependabot 每周检查新版本并提 PR，同时更新 SHA 和版本注释。
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      timezone: Asia/Shanghai
+    open-pull-requests-limit: 5
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: ci
