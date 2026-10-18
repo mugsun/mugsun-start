@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { toFormParams, parseRetryAfter, parseContentDisposition, toApiError, createHttpApi, type FetchLike } from './http'
+import { toFormParams, toJsonBody, parseRetryAfter, parseContentDisposition, toApiError, createHttpApi, type FetchLike } from './http'
 import { ApiError, type ProjectRequest } from './types'
 
 const req: ProjectRequest = {
@@ -103,5 +103,67 @@ describe('http api', () => {
   })
   it('network failure becomes NETWORK', async () => {
     await expect(createHttpApi('', async () => { throw new TypeError('Failed to fetch') }).getMetadata({ locale: 'en' })).rejects.toMatchObject({ code: 'NETWORK' })
+  })
+})
+
+/** 响应头立刻返回，但响应体一直读不完 */
+function stalledBody(contentType: string): FetchLike {
+  return async (_u, init) => {
+    const body = new ReadableStream({ start(c) { init!.signal!.addEventListener('abort', () => c.error(new DOMException('a', 'AbortError'))) } })
+    return new Response(body, { status: 200, headers: { 'Content-Type': contentType } })
+  }
+}
+/** 响应体读取完全不理会 signal（只能靠 call 里的赛跑兜底） */
+function deafBody(): FetchLike {
+  return async () => ({ ok: true, status: 200, headers: new Headers({ 'Content-Type': 'application/json' }), json: () => new Promise(() => {}) }) as unknown as Response
+}
+
+describe('body reading is covered by timeout and cancel', () => {
+  it('json body that never finishes → TIMEOUT', async () => {
+    await expect(createHttpApi('', stalledBody('application/json')).getMetadata({ locale: 'en', timeoutMs: 20 })).rejects.toMatchObject({ code: 'TIMEOUT' })
+    await expect(createHttpApi('', deafBody()).preview(req, { locale: 'en', timeoutMs: 20 })).rejects.toMatchObject({ code: 'TIMEOUT' })
+  })
+  it('zip blob that never finishes → TIMEOUT', async () => {
+    await expect(createHttpApi('', stalledBody('application/zip')).generate(req, { locale: 'en', timeoutMs: 20 })).rejects.toMatchObject({ code: 'TIMEOUT' })
+  })
+  it('external cancel while reading the body → AbortError', async () => {
+    const ctrl = new AbortController()
+    const p = createHttpApi('', deafBody()).getMetadata({ locale: 'en', signal: ctrl.signal })
+    await new Promise((r) => setTimeout(r, 5))
+    ctrl.abort()
+    const e = await p.catch((x) => x)
+    expect(e).toBeInstanceOf(DOMException)
+    expect(e.name).toBe('AbortError')
+  })
+  it('timer and abort listener are only released after the body is read', async () => {
+    const ctrl = new AbortController()
+    const remove = vi.spyOn(ctrl.signal, 'removeEventListener')
+    let release!: (v: unknown) => void
+    const f: FetchLike = async () => ({ ok: true, status: 200, headers: new Headers(), json: () => new Promise((r) => { release = r }) }) as unknown as Response
+    const p = createHttpApi('', f).getMetadata({ locale: 'en', signal: ctrl.signal })
+    await new Promise((r) => setTimeout(r, 5))
+    expect(remove).not.toHaveBeenCalled()
+    release({ version: 'x' })
+    await p
+    expect(remove).toHaveBeenCalled()
+  })
+})
+
+describe('empty values are treated the same in zip and preview requests', () => {
+  it('drops empty string, undefined and empty array in both', () => {
+    const r = { ...req, description: '', version: undefined, dependencies: [] }
+    const form = [...toFormParams(r).keys()].sort()
+    const json = Object.keys(JSON.parse(toJsonBody(r))).sort()
+    expect(json).toEqual(form)
+    expect(json).not.toContain('description')
+    expect(json).not.toContain('dependencies')
+  })
+  it('preview request body uses the same rule', async () => {
+    const f = vi.fn<FetchLike>(async () => new Response('{"tree":[],"truncated":false}', { headers: { 'Content-Type': 'application/json' } }))
+    await createHttpApi('', f).preview({ ...req, description: '' }, { locale: 'en' })
+    expect(JSON.parse(String(f.mock.calls[0][1]!.body))).not.toHaveProperty('description')
+  })
+  it('filename* is sanitized too', () => {
+    expect(parseContentDisposition("attachment; filename*=UTF-8''..%2F..%5Cx.zip")).toBe('.._.._x.zip')
   })
 })
