@@ -30,6 +30,9 @@ export interface Dependency extends SelectOption {
   icon?: string
   /** x-mugsun 扩展：适用的生成范围（type id）；缺省为全部 */
   types?: string[]
+  /** 后端可能追加的字段，前端暂时忽略 */
+  alwaysOn?: boolean
+  removableIn?: string[]
 }
 
 export interface DependencyGroup { name: string; values: Dependency[] }

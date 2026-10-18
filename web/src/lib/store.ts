@@ -3,9 +3,11 @@ import { api, withTimeout, METADATA_TIMEOUT_MS } from '@/api'
 import type { Metadata, Dependency, ProjectRequest } from '@/api'
 import { derivePackage } from './validate'
 import { fromQuery } from './share'
+import { FULLSTACK, resolveScopeTypes } from './scope'
+import { i18n } from '@/i18n'
 
-export const FULLSTACK = 'mugsun-fullstack'
-export const BACKEND = 'maven-project'
+export { FULLSTACK, BACKEND } from './scope'
+
 
 export const form = reactive({
   type: FULLSTACK,
@@ -13,7 +15,7 @@ export const form = reactive({
   artifactId: 'demo',
   name: 'demo',
   packageName: 'com.example.demo',
-  description: '',
+  description: i18n.global.t('form.defaultDesc'),
   database: 'postgresql',
   dependencies: [] as string[]
 })
@@ -29,6 +31,8 @@ export const requiredDeps = computed<Dependency[]>(() =>
 export const optionalDeps = computed<Dependency[]>(() =>
   (metadata.value?.dependencies.values ?? []).flatMap((g) => g.values).filter((d) => !d.required)
 )
+/** 生成范围：前端常量，接口文案可覆盖 */
+export const scopeTypes = computed(() => resolveScopeTypes((k) => i18n.global.t(k), metadata.value?.type.values))
 export const isFullstack = computed(() => form.type === FULLSTACK)
 /** mugsun-gis → gis */
 export const shortId = (id: string) => id.replace(/^mugsun-/, '')
@@ -59,12 +63,14 @@ export async function loadMetadata(locale: string) {
   try {
     const m = await withTimeout(api.getMetadata(locale), METADATA_TIMEOUT_MS)
     metadata.value = m
-    if (!fromShare) form.type = m.type.default
-    if (!manual.description) form.description = m.description.default ?? ''
+    if (!fromShare && scopeTypes.value.some((x) => x.id === m.type.default)) form.type = m.type.default
+    if (!manual.description) form.description = m.description.default || i18n.global.t('form.defaultDesc')
     const known = new Set(m.dependencies.values.flatMap((g) => g.values).map((d) => d.id))
     form.dependencies = form.dependencies.filter((d) => known.has(d))
     metaState.value = 'ready'
   } catch {
+    metadata.value = null
+    if (!manual.description) form.description = i18n.global.t('form.defaultDesc')
     metaState.value = 'error'
   }
 }

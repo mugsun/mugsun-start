@@ -13,7 +13,7 @@ import PreviewTree from './components/PreviewTree.vue'
 import ActionBar from './components/ActionBar.vue'
 import StartDrawer from './components/StartDrawer.vue'
 import { api, ApiError } from './api'
-import { form, metadata, loadMetadata, applyQuery, toRequest, metaState } from './lib/store'
+import { form, scopeTypes, loadMetadata, applyQuery, toRequest, metaState } from './lib/store'
 import { toQuery } from './lib/share'
 
 const { t, locale } = useI18n()
@@ -87,8 +87,7 @@ useEventListener(window, 'keydown', (e: KeyboardEvent) => {
         <section class="col left" aria-labelledby="h-info">
           <h2 id="h-info">{{ t('info.title') }}</h2>
           <h3 class="sub">{{ t('info.scope') }}</h3>
-          <ScopeCards v-if="metadata" v-model="form.type" :types="metadata.type.values" :label="t('info.scope')" />
-          <el-skeleton v-else :rows="1" :loading="true" class="scope-sk" />
+          <ScopeCards v-model="form.type" :types="scopeTypes" :label="t('info.scope')" />
           <h3 class="sub">{{ t('info.meta') }}</h3>
           <ProjectForm ref="formRef" />
         </section>

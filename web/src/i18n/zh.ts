@@ -3,10 +3,11 @@ export default {
   title: '创建 mugsun 项目',
   subtitle: '选择模块并填写项目信息，生成可直接运行的工程。',
   offline: '网络已断开，恢复后可继续生成',
+  scope: { backend: { name: '仅后端', desc: 'mugsun-boot，Spring Boot 3.5、JDK 21。' }, fullstack: { name: '前后端', desc: '后端 + mugsun-pc 管理台（Vue 3）。' } },
   info: { title: '项目信息', scope: '生成范围', meta: '项目元数据', build: '构建参数' },
   form: {
     group: 'Group', artifact: 'Artifact', name: '项目名称', packageName: '包名', description: '描述', database: '数据库',
-    databaseHint: '一期仅支持 PostgreSQL', restore: '恢复自动', boot: 'Spring Boot', java: 'JDK', packaging: '打包方式',
+    defaultDesc: '基于 mugsun 的管理系统', databaseHint: '一期仅支持 PostgreSQL', restore: '恢复自动', boot: 'Spring Boot', java: 'JDK', packaging: '打包方式',
     err: {
       groupRequired: '请填写 Group。',
       group: 'Group 只能包含小写字母、数字、下划线和点，且不能以数字开头。',
@@ -29,6 +30,7 @@ export default {
     summary: '{scope} · 已选 {n} 个可选模块 · {pkg}',
     share: '复制分享链接', shared: '分享链接已复制', download: '下载 ZIP', generating: '正在生成…',
     shortcut: '快捷键：{key} + Enter', slow: '生成时间较长，请稍候', guide: '启动说明',
+    disabledLoading: '模块列表加载中，加载完成后可生成',
     disabledMeta: '模块列表加载失败，暂时无法生成',
     invalid: '有 {n} 项信息需要修改',
     failed: '生成失败，请稍后重试（错误编号：{id}）'

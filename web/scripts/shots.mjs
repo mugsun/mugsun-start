@@ -36,7 +36,10 @@ async function shot(page, name, { full = true } = {}) {
   await page.screenshot({ path: `${OUT}/${name}.png` })
   console.log('ok', name)
 }
-const run = async (name, opts, fn, shotOpts) => { const { ctx, page } = await open(opts); try { await fn(page); await shot(page, name, shotOpts) } finally { await ctx.close() } }
+const ONLY = (process.env.ONLY ?? '').split(',').filter(Boolean)
+const run = async (name, opts, fn, shotOpts) => {
+  if (ONLY.length && !ONLY.some((p) => name.startsWith(p + '-'))) return
+  const { ctx, page } = await open(opts); try { await fn(page); await shot(page, name, shotOpts) } finally { await ctx.close() } }
 
 await run('01-1440-zh-light', {}, ready)
 await run('02-1440-zh-dark', { dark: true }, ready)
@@ -63,6 +66,9 @@ await run('12-1440-generating', { query: '?mock=gen-slow' }, async (p) => {
   await ready(p); await p.click('.el-button--primary:has-text("下载 ZIP")'); await p.waitForTimeout(10_600)
 }, { full: false })
 await run('13-1440-generate-failed', { query: '?mock=gen-fail' }, async (p) => {
+  await ready(p); await p.click('.el-button--primary:has-text("下载 ZIP")'); await p.waitForSelector('.el-message--error'); await p.waitForTimeout(400)
+}, { full: false })
+await run('13b-1440-dark-gen-fail', { dark: true, query: '?mock=gen-fail' }, async (p) => {
   await ready(p); await p.click('.el-button--primary:has-text("下载 ZIP")'); await p.waitForSelector('.el-message--error'); await p.waitForTimeout(400)
 }, { full: false })
 await run('14-1440-guide-drawer-light', {}, async (p) => {

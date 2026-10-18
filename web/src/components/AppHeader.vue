@@ -2,6 +2,7 @@
 import { useI18n } from 'vue-i18n'
 import { Moon, Sunny, Menu as MenuIcon, ArrowDown } from '@element-plus/icons-vue'
 import { setLocale, type Locale } from '@/i18n'
+import BrandLogo from './BrandLogo.vue'
 
 defineProps<{ narrow: boolean; dark: boolean }>()
 const emit = defineEmits<{ toggleDark: [] }>()
@@ -18,8 +19,8 @@ const onMenu = (cmd: string) => {
 <template>
   <header class="app-header">
     <div class="inner">
-      <a href="/" class="logo" aria-label="mugsun">
-        <img :src="dark ? '/logo-dark.svg' : '/logo.svg'" alt="mugsun" height="28" />
+      <a href="/" class="logo">
+        <BrandLogo :dark="dark" />
       </a>
       <nav class="actions">
         <a v-if="!narrow" class="link" :href="DOCS" target="_blank" rel="noopener">{{ t('header.docs') }}</a>
@@ -59,8 +60,7 @@ const onMenu = (cmd: string) => {
 <style scoped>
 .app-header { height: 56px; border-bottom: 1px solid var(--el-border-color-light); background: var(--el-bg-color); position: sticky; top: 0; z-index: 20; }
 .inner { max-width: 1200px; margin: 0 auto; padding: 0 var(--gutter); height: 100%; display: flex; align-items: center; justify-content: space-between; }
-.logo { display: flex; align-items: center; height: 28px; }
-.logo img { height: 28px; width: auto; display: block; }
+.logo { display: flex; align-items: center; height: 28px; text-decoration: none; border-radius: 6px; }
 .actions { display: flex; align-items: center; gap: 8px; }
 .link { color: var(--el-text-color-primary); text-decoration: none; font-size: 14px; padding: 6px 8px; border-radius: 8px; }
 .link:hover { color: var(--link); }

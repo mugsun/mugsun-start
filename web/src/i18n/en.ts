@@ -5,10 +5,11 @@ const en: typeof zh = {
   title: 'Create a mugsun project',
   subtitle: 'Choose modules and fill in the project details to generate a project that runs out of the box.',
   offline: 'You are offline. Generation will be available again once the connection is restored.',
+  scope: { backend: { name: 'Backend only', desc: 'mugsun-boot, Spring Boot 3.5, JDK 21.' }, fullstack: { name: 'Full stack', desc: 'Backend plus the mugsun-pc admin console (Vue 3).' } },
   info: { title: 'Project details', scope: 'Generation scope', meta: 'Project metadata', build: 'Build settings' },
   form: {
     group: 'Group', artifact: 'Artifact', name: 'Project name', packageName: 'Package name', description: 'Description', database: 'Database',
-    databaseHint: 'Only PostgreSQL is supported in this release', restore: 'Restore automatic value', boot: 'Spring Boot', java: 'JDK', packaging: 'Packaging',
+    defaultDesc: 'An admin system built on mugsun', databaseHint: 'Only PostgreSQL is supported in this release', restore: 'Restore automatic value', boot: 'Spring Boot', java: 'JDK', packaging: 'Packaging',
     err: {
       groupRequired: 'Enter a group.',
       group: 'The group can only contain lowercase letters, digits, underscores and dots, and cannot start with a digit.',
@@ -31,6 +32,7 @@ const en: typeof zh = {
     summary: '{scope} · {n} optional modules selected · {pkg}',
     share: 'Copy share link', shared: 'Share link copied', download: 'Download ZIP', generating: 'Generating…',
     shortcut: 'Shortcut: {key} + Enter', slow: 'Generation is taking longer than usual. Please wait.', guide: 'Getting started',
+    disabledLoading: 'Generation will be available once the module list has loaded',
     disabledMeta: 'Generation is unavailable because the module list could not be loaded',
     invalid: '{n} fields need to be corrected',
     failed: 'Generation failed. Try again later. (Error ID: {id})'

@@ -1,17 +1,19 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { form, metadata, metaState } from '@/lib/store'
+import { form, scopeTypes, metaState } from '@/lib/store'
 
 const props = defineProps<{ narrow: boolean; generating: boolean; slow: boolean; invalidCount: number; showGuide: boolean }>()
 const emit = defineEmits<{ download: []; share: []; guide: []; closeAlert: [] }>()
 const { t } = useI18n()
 const isMac = typeof navigator !== 'undefined' && /Mac|iP(hone|ad)/.test(navigator.platform)
 const key = isMac ? '⌘' : 'Ctrl'
-const scopeName = computed(() => metadata.value?.type.values.find((v) => v.id === form.type)?.name ?? '')
-const summary = computed(() => t('bar.summary', { scope: scopeName.value, n: form.dependencies.length, pkg: form.packageName }).replace(/^ · /, ''))
+const scopeName = computed(() => scopeTypes.value.find((v) => v.id === form.type)?.name ?? '')
+const summary = computed(() => t('bar.summary', { scope: scopeName.value, n: form.dependencies.length, pkg: form.packageName }))
 const blocked = computed(() => metaState.value !== 'ready')
-const downloadTip = computed(() => (blocked.value && metaState.value === 'error' ? t('bar.disabledMeta') : t('bar.shortcut', { key })))
+const downloadTip = computed(() =>
+  metaState.value === 'error' ? t('bar.disabledMeta') : metaState.value === 'loading' ? t('bar.disabledLoading') : t('bar.shortcut', { key })
+)
 void props
 </script>
 

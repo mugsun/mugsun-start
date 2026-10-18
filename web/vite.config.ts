@@ -5,5 +5,5 @@ export default defineConfig({
   plugins: [vue()],
   resolve: { alias: { '@': '/src' } },
   server: { port: 3093, strictPort: true },
-  test: { environment: 'node', include: ['src/**/*.test.ts'] }
+  test: { environment: 'node', include: ['src/**/*.test.ts'], css: true }
 } as never)
