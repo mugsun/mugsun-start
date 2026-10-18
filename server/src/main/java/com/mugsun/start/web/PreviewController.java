@@ -25,6 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
  * <p>与生成走同一个 {@link ProjectGenerationInvoker} 和同一个校验器（{@link MugsunProjectRequestConverter} →
  * {@link ProjectRequestValidator}），所以错误体与生成完全相同、文件清单与 zip 一致。生成到临时目录、遍历成树后立即清理，不打包。
  * 响应顶层总是带布尔 {@code truncated}。
+ * <p>结果缓存与并发上限见 {@link PreviewGuard}：相同请求在缓存有效期内不重复生成，同时在跑的生成数有上限。
  */
 @RestController
 @RequestMapping("/api/v1/preview")
@@ -36,12 +37,15 @@ public class PreviewController {
 
 	private final int maxNodes;
 
+	private final PreviewGuard guard;
+
 	public PreviewController(InitializrMetadataProvider metadataProvider,
 			ProjectGenerationInvoker<MugsunProjectRequest> invoker,
-			@Value("${mugsun.start.preview.max-nodes:5000}") int maxNodes) {
+			@Value("${mugsun.start.preview.max-nodes:5000}") int maxNodes, PreviewGuard guard) {
 		this.metadataProvider = metadataProvider;
 		this.invoker = invoker;
 		this.maxNodes = maxNodes;
+		this.guard = guard;
 	}
 
 	/** 与生成控制器一样，先用 metadata 默认值初始化，再绑定 query。 */
@@ -70,18 +74,25 @@ public class PreviewController {
 	}
 
 	private Map<String, Object> preview(MugsunProjectRequest request, HttpServletRequest http) {
+		// 缓存命中时不经过校验器，baseDir 的缺省值（= artifactId）要在算缓存键之前补上，否则命中时 root 会是 null
+		ProjectRequestValidator.applyBaseDirDefault(request);
+		PreviewTree.Result tree = this.guard.get(request, () -> generate(request));
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("requestId", ErrorResponses.requestId(http));
+		body.put("root", request.getBaseDir());
+		body.put("fileCount", tree.fileCount());
+		body.put("dirCount", tree.dirCount());
+		body.put("truncated", tree.truncated());
+		body.put("tree", tree.tree());
+		return body;
+	}
+
+	/** 生成到临时目录、遍历成树后立即清理（生成失败时由 {@link CleaningProjectGenerationInvoker} 清理）。 */
+	private PreviewTree.Result generate(MugsunProjectRequest request) {
 		ProjectGenerationResult result = this.invoker.invokeProjectStructureGeneration(request);
 		Path root = result.getRootDirectory();
 		try {
-			PreviewTree.Result tree = PreviewTree.build(root, this.maxNodes);
-			Map<String, Object> body = new LinkedHashMap<>();
-			body.put("requestId", ErrorResponses.requestId(http));
-			body.put("root", request.getBaseDir());
-			body.put("fileCount", tree.fileCount());
-			body.put("dirCount", tree.dirCount());
-			body.put("truncated", tree.truncated());
-			body.put("tree", tree.tree());
-			return body;
+			return PreviewTree.build(root, this.maxNodes);
 		}
 		finally {
 			this.invoker.cleanTempFiles(root);
