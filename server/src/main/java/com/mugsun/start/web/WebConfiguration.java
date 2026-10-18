@@ -13,6 +13,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.DispatcherServlet;
 import org.springframework.web.servlet.LocaleResolver;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import org.springframework.web.servlet.i18n.AcceptHeaderLocaleResolver;
 
@@ -52,6 +53,11 @@ public class WebConfiguration implements WebMvcConfigurer {
 		resolver.setSupportedLocales(List.of(Locale.CHINESE, Locale.ENGLISH));
 		resolver.setDefaultLocale(Locale.CHINESE);
 		return resolver;
+	}
+
+	@Override
+	public void addInterceptors(InterceptorRegistry registry) {
+		registry.addInterceptor(new GenerationContentTypeGuard()).addPathPatterns("/starter.zip", "/starter.tgz");
 	}
 
 	@Override

@@ -10,7 +10,6 @@ import org.slf4j.LoggerFactory;
 
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.ErrorResponse;
@@ -55,20 +54,7 @@ public class ApiExceptionHandler {
 			log.error("INTERNAL_ERROR requestId={} {} {}", ErrorResponses.requestId(request), request.getMethod(),
 					request.getRequestURI(), (Throwable) ex);
 		}
-		ErrorCode code = switch (status) {
-			case 404 -> ErrorCode.NOT_FOUND;
-			case 405 -> ErrorCode.METHOD_NOT_ALLOWED;
-			default -> (status >= 500) ? ErrorCode.INTERNAL_ERROR : ErrorCode.INVALID_PARAMETER;
-		};
-		if (code == ErrorCode.INVALID_PARAMETER) {
-			return ResponseEntity.status(status)
-				.contentType(MediaType.APPLICATION_JSON)
-				.body(this.errors.body(code, List.of(new FieldProblem("request", "invalid")), null,
-						ErrorResponses.requestId(request)));
-		}
-		return ResponseEntity.status(status)
-			.contentType(MediaType.APPLICATION_JSON)
-			.body(this.errors.body(code, List.of(), new Object[0], ErrorResponses.requestId(request)));
+		return this.errors.forStatus(request, status);
 	}
 
 	@ExceptionHandler(Exception.class)

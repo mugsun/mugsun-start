@@ -1,6 +1,7 @@
 package com.mugsun.start.web;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -30,6 +31,9 @@ import org.springframework.stereotype.Component;
 public class ErrorResponses {
 
 	static final ZoneId ZONE = ZoneId.of("Asia/Shanghai");
+
+	/** 错误体一律 {@code application/json;charset=UTF-8} */
+	public static final MediaType JSON_UTF8 = new MediaType(MediaType.APPLICATION_JSON, StandardCharsets.UTF_8);
 
 	private final MessageSource messages;
 
@@ -73,7 +77,7 @@ public class ErrorResponses {
 	public ResponseEntity<Object> entity(HttpServletRequest request, ErrorCode code, List<FieldProblem> problems,
 			Object[] args, Long retryAfterSeconds) {
 		ResponseEntity.BodyBuilder builder = ResponseEntity.status(code.status())
-			.contentType(MediaType.APPLICATION_JSON);
+			.contentType(JSON_UTF8);
 		if (retryAfterSeconds != null) {
 			builder.header(HttpHeaders.RETRY_AFTER, Long.toString(retryAfterSeconds));
 		}
@@ -85,12 +89,38 @@ public class ErrorResponses {
 			throws IOException {
 		response.resetBuffer();
 		response.setStatus(ex.code().status().value());
-		response.setContentType("application/json;charset=UTF-8");
+		response.setContentType(JSON_UTF8.toString());
 		if (ex.retryAfterSeconds() != null) {
 			response.setHeader(HttpHeaders.RETRY_AFTER, Long.toString(ex.retryAfterSeconds()));
 		}
 		this.mapper.writeValue(response.getOutputStream(), body(ex.code(), ex.problems(), retryArgs(ex),
 				requestId(request)));
+	}
+
+	/** 状态码到错误码：Spring MVC 自身异常与 /error 共用。 */
+	public static ErrorCode codeFor(int status) {
+		return switch (status) {
+			case 404 -> ErrorCode.NOT_FOUND;
+			case 405 -> ErrorCode.METHOD_NOT_ALLOWED;
+			case 406 -> ErrorCode.NOT_ACCEPTABLE;
+			case 415 -> ErrorCode.UNSUPPORTED_MEDIA_TYPE;
+			case 429 -> ErrorCode.RATE_LIMITED;
+			default -> (status >= 500) ? ErrorCode.INTERNAL_ERROR : ErrorCode.INVALID_PARAMETER;
+		};
+	}
+
+	/** 按原状态码返回统一错误体；INVALID_PARAMETER 带一条 {@code {field: "request", reason: "invalid"}}。 */
+	public ResponseEntity<Object> forStatus(HttpServletRequest request, int status) {
+		ErrorCode code = codeFor(status);
+		List<FieldProblem> problems = (code == ErrorCode.INVALID_PARAMETER)
+				? List.of(new FieldProblem("request", "invalid")) : List.of();
+		Object[] args = (code == ErrorCode.INVALID_PARAMETER) ? null : new Object[0];
+		if (code == ErrorCode.RATE_LIMITED) {
+			args = new Object[] { "1" };
+		}
+		return ResponseEntity.status(status)
+			.contentType(JSON_UTF8)
+			.body(body(code, problems, args, requestId(request)));
 	}
 
 	public static String requestId(HttpServletRequest request) {

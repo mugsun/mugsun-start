@@ -5,6 +5,9 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.Map;
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 
 import com.mugsun.start.metadata.MugsunStartProperties.AlwaysOnModule;
 import com.mugsun.start.metadata.MugsunStartProperties.OptionalModule;
@@ -40,6 +43,7 @@ public final class MetadataConsistency {
 		});
 		props.fields().forEach((id, rule) -> optional(problems, "mugsun.start.fields." + id + ".default-text",
 				(rule != null) ? rule.defaultText() : null));
+		fields(problems, props.fields());
 		if (props.database() != null) {
 			optional(problems, "mugsun.start.database.note", props.database().note());
 		}
@@ -107,6 +111,36 @@ public final class MetadataConsistency {
 	}
 
 	/** 必填文案：缺失或缺中文/英文都算问题。 */
+	/** 校验器认识的字段；mugsun.start.fields 只能配置这些键（G5）。 */
+	public static final List<String> FIELD_KEYS = List.of("groupId", "artifactId", "name", "description", "packageName");
+
+	/** G5：字段键名必须是校验器认识的；pattern 必须能编译；max-length 必须为正数。 */
+	static void fields(List<String> problems, Map<String, MugsunStartProperties.FieldRule> fields) {
+		if (fields == null) {
+			return;
+		}
+		fields.forEach((id, rule) -> {
+			String what = "mugsun.start.fields." + id;
+			if (!FIELD_KEYS.contains(id)) {
+				problems.add(what + "：未知字段，只支持 " + FIELD_KEYS);
+			}
+			if (rule == null) {
+				return;
+			}
+			if (rule.pattern() != null) {
+				try {
+					Pattern.compile(rule.pattern());
+				}
+				catch (PatternSyntaxException ex) {
+					problems.add(what + ".pattern 不是合法的正则：" + ex.getDescription());
+				}
+			}
+			if (rule.maxLength() != null && rule.maxLength() <= 0) {
+				problems.add(what + ".max-length 必须大于 0");
+			}
+		});
+	}
+
 	private static void required(List<String> problems, String what, L10n text) {
 		if (text == null || !text.complete()) {
 			problems.add(what + " 缺少中文或英文");

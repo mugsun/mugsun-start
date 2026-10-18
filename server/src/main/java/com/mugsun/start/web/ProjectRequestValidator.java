@@ -8,6 +8,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 
 import javax.lang.model.SourceVersion;
 
@@ -49,9 +50,32 @@ public class ProjectRequestValidator {
 
 	private final MugsunStartProperties props;
 
+	/** mugsun.start.fields 的正则，启动时预编译（G5）；编译失败直接拒绝启动 */
+	private final Map<String, Pattern> patterns;
+
 	public ProjectRequestValidator(InitializrMetadataProvider metadataProvider, MugsunStartProperties props) {
 		this.metadataProvider = metadataProvider;
 		this.props = props;
+		this.patterns = compile(props.fields());
+	}
+
+	static Map<String, Pattern> compile(Map<String, FieldRule> fields) {
+		Map<String, Pattern> compiled = new LinkedHashMap<>();
+		if (fields == null) {
+			return Map.of();
+		}
+		fields.forEach((id, rule) -> {
+			if (rule != null && rule.pattern() != null) {
+				try {
+					compiled.put(id, Pattern.compile(rule.pattern()));
+				}
+				catch (PatternSyntaxException ex) {
+					throw new IllegalStateException(
+							"mugsun.start.fields." + id + ".pattern 不是合法的正则：" + ex.getDescription(), ex);
+				}
+			}
+		});
+		return Map.copyOf(compiled);
 	}
 
 	public void validate(ProjectRequest request, String database) {
@@ -166,7 +190,7 @@ public class ProjectRequestValidator {
 		if (rule.maxLength() != null && value.length() > rule.maxLength()) {
 			problems.add(new FieldProblem(field, "maxLength", rule.maxLength()));
 		}
-		else if (rule.pattern() != null && !Pattern.compile(rule.pattern()).matcher(value).matches()) {
+		else if (this.patterns.containsKey(field) && !this.patterns.get(field).matcher(value).matches()) {
 			problems.add(new FieldProblem(field, "pattern"));
 		}
 	}
@@ -176,12 +200,13 @@ public class ProjectRequestValidator {
 		if (blank(packageName)) {
 			return;
 		}
-		// 未传 packageName 时 ProjectRequest#getPackageName 返回 groupId.artifactId，initializr 随后会转小写、去掉连字符；
-		// 这种推导值只检查关键字（groupId、artifactId 自身的格式已单独校验），推导结果同样不能含关键字
+		// 未传 packageName 时 ProjectRequest#getPackageName 返回 groupId.artifactId，initializr 随后把连字符换成 _
+		// （shop-admin → shop_admin，与 start.spring.io 一致）。这种推导值只检查关键字（groupId、artifactId 自身的格式已单独校验），
+		// 而且按换成 _ 之后的结果检查：in-t 推导成 in_t，不会被误判成关键字 int
 		String derived = (blank(request.getGroupId()) || blank(request.getArtifactId())) ? null
 				: request.getGroupId() + "." + request.getArtifactId();
 		if (packageName.equals(derived)) {
-			keywords(problems, derived.replace("-", "").toLowerCase(Locale.ROOT));
+			keywords(problems, derivedPackageName(derived));
 			return;
 		}
 		int before = problems.size();
@@ -189,6 +214,11 @@ public class ProjectRequestValidator {
 		if (problems.size() == before) {
 			keywords(problems, packageName);
 		}
+	}
+
+	/** 与 initializr 生成时的处理一致：连字符换成 _，转小写。 */
+	static String derivedPackageName(String groupDotArtifact) {
+		return groupDotArtifact.replace('-', '_').toLowerCase(Locale.ROOT);
 	}
 
 	private static void keywords(List<FieldProblem> problems, String packageName) {
