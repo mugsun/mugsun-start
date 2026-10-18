@@ -93,7 +93,8 @@ public class UiMetadataAssembler {
 		Map<String, Object> o = new LinkedHashMap<>();
 		o.put("id", t.getId());
 		o.put("name", text.name());
-		o.put("description", (text.description() != null) ? text.description() : new L10n(t.getDescription(), null));
+		// 中英文缺一项时 MetadataConsistency 已让服务拒绝启动，这里不再回落到 initializr 的单语描述（避免下发 en:null）
+		o.put("description", text.description());
 		o.put("action", t.getAction());
 		o.put("tags", t.getTags());
 		if (t.isDefault()) {

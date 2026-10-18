@@ -12,6 +12,7 @@ import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -36,8 +37,24 @@ public class ApiExceptionHandler {
 		return this.errors.entity(request, ex);
 	}
 
+	/**
+	 * JSON 请求体无法解析（格式错误、字段类型不对）：400 INVALID_PARAMETER。异常文本只进日志，不进 message。
+	 */
+	@ExceptionHandler(HttpMessageNotReadableException.class)
+	public ResponseEntity<Object> unreadable(HttpServletRequest request, HttpMessageNotReadableException ex) {
+		log.info("请求体无法解析 requestId={} {} {}：{}", ErrorResponses.requestId(request), request.getMethod(),
+				request.getRequestURI(), ex.getMostSpecificCause().toString());
+		return this.errors.entity(request, ErrorCode.INVALID_PARAMETER,
+				List.of(new FieldProblem("body", "invalid")), null, null);
+	}
+
 	private ResponseEntity<Object> framework(HttpServletRequest request, ErrorResponse ex) {
 		int status = ex.getStatusCode().value();
+		if (status >= 500) {
+			// 5xx 一律通用文案 + requestId；真实异常只写日志
+			log.error("INTERNAL_ERROR requestId={} {} {}", ErrorResponses.requestId(request), request.getMethod(),
+					request.getRequestURI(), (Throwable) ex);
+		}
 		ErrorCode code = switch (status) {
 			case 404 -> ErrorCode.NOT_FOUND;
 			case 405 -> ErrorCode.METHOD_NOT_ALLOWED;

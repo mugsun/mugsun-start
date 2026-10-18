@@ -35,7 +35,8 @@ public class WebConfiguration implements WebMvcConfigurer {
 	@Bean
 	public ProjectGenerationInvoker<MugsunProjectRequest> mugsunProjectGenerationInvoker(ApplicationContext context,
 			ProjectRequestValidator validator) {
-		return new ProjectGenerationInvoker<>(context, new MugsunProjectRequestConverter(validator));
+		// 生成失败时清理临时目录（预览与 zip 共用）
+		return new CleaningProjectGenerationInvoker<>(context, new MugsunProjectRequestConverter(validator));
 	}
 
 	/** 同类型 bean 存在时 initializr 的默认控制器不再注册（@ConditionalOnMissingBean）。 */
