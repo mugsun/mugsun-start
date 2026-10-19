@@ -35,7 +35,7 @@ curl -o demo.zip 'localhost:8080/starter.zip?type=mugsun-backend'
 
 ### 前端（`web/`）
 
-需要 Node.js 22 与 pnpm 11。未设置 `VITE_API_BASE` 时使用内置 mock 数据；设置后连接真实后端。
+需要 Node.js 22 与 pnpm 11。本地开发未设置 `VITE_API_BASE` 时使用内置 mock 数据；设置后连接真实后端。生产构建（`pnpm build`）必须设置 `VITE_API_BASE`（前后端同源部署设 `/`），或显式设置 `VITE_USE_MOCK=1` 构建 mock 演示版，否则构建直接失败，见 `web/.env.example`。
 
 ```bash
 cd web

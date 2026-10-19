@@ -3,4 +3,5 @@ dist
 *.log
 .DS_Store
 test-results
+*.local
 e2e-artifacts/

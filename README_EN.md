@@ -35,7 +35,7 @@ curl -o demo.zip 'localhost:8080/starter.zip?type=maven-project'
 
 ### Front end (`web/`)
 
-Requires Node.js 22 and pnpm 11. Without `VITE_API_BASE` the app uses built-in mock data; set it to connect to a real backend.
+Requires Node.js 22 and pnpm 11. In local development, without `VITE_API_BASE` the app uses built-in mock data; set it to connect to a real backend. A production build (`pnpm build`) requires `VITE_API_BASE` (use `/` when served from the same origin as the backend) or an explicit `VITE_USE_MOCK=1` for a mock demo build; otherwise the build fails. See `web/.env.example`.
 
 ```bash
 cd web
