@@ -20,7 +20,25 @@ describe('validate by field spec', () => {
   it('invalid server pattern is ignored, not thrown', () => {
     expect(checkField('x', { pattern: '([' })).toBeNull()
   })
-  it('derive', () => { expect(derivePackage('com.example', 'my-app')).toBe('com.example.myapp') })
+  it('derive: same cases as backend FieldPatternCompileTests / S3FollowupApiTests (#10)', () => {
+    // 后端：derivedPackageName("com.example.Shop-Admin") == "com.example.shop_admin"；("com.example.in-t") == "com.example.in_t"
+    expect(derivePackage('com.example', 'Shop-Admin')).toBe('com.example.shop_admin')
+    expect(derivePackage('com.example', 'in-t')).toBe('com.example.in_t')
+    expect(derivePackage('com.example', 'shop-admin')).toBe('com.example.shop_admin')
+    expect(derivePackage('com.example', 'my-app')).toBe('com.example.my_app')
+  })
+  it('derive: edge cases follow replace("-","_").toLowerCase() only', () => {
+    expect(derivePackage('Com.Example', 'App')).toBe('com.example.app')
+    expect(derivePackage('com.example', 'a--b')).toBe('com.example.a__b')
+    expect(derivePackage('com.example', 'a-')).toBe('com.example.a_')
+    expect(derivePackage('com.my-org', 'x')).toBe('com.my_org.x')
+    expect(derivePackage('com.example', '1app')).toBe('com.example.1app') // 数字开头不清理，由 artifactId/packageName 校验拦
+    expect(derivePackage('com.example', 'a.b$c')).toBe('com.example.a.b$c') // 其他非法字符同样不清理
+  })
+  it('in-t derives to in_t, which is not a keyword', () => {
+    expect(checkField(derivePackage('com.example', 'in-t'), F.packageName, { javaPackage: true })).toBeNull()
+    expect(isReservedSegment('in_t')).toBe(false)
+  })
 })
 
 describe('package segments: keywords and literals', () => {

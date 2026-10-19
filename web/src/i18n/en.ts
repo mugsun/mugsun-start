@@ -26,6 +26,7 @@ const en: typeof zh = {
     notApplicable: 'This module does not apply to the selected generation scope.',
     loadError: 'The module list could not be loaded. Check your network connection and try again.', retry: 'Retry'
   },
+  cooldown: { downloadIn: 'Download ZIP ({s}s)', retryIn: 'Retry ({s}s)', canRetry: 'You can retry now', ready: 'Too many requests. You can retry now.' },
   preview: { unsupported: 'The request contains an option that is not supported yet. Refresh the page.', invalid: 'Some project details are invalid. The preview updates once they are corrected.', error: 'The preview could not be loaded. Try again later.', requestId: 'Error ID: {id}', fromModule: 'From module: {m}', truncated: 'Some directories only show item counts because the project has many files.', stale: 'The preview could not be updated. The previous result is shown.', title: 'Project structure', files: '{n} files', empty: 'There are no files to preview', updated: 'Project structure updated, {n} files' },
   bar: {
     summary: '{scope} · {n} optional modules selected · {pkg}',
@@ -36,8 +37,10 @@ const en: typeof zh = {
     invalid: '{n} fields need to be corrected',
     rateLimited: 'Too many requests. Try again in {s} seconds.',
     serverMessage: '{msg} (Error ID: {id})',
+    idSep: ' ',
+    idPart: '(Error ID: {id})',
     unknownDependency: 'The request contains a module that does not exist. Refresh the page and try again. (Error ID: {id})',
-    invalidOther: 'The request is invalid. Refresh the page and try again. (Error ID: {id})',
+    invalidOther: 'Invalid request. Check the project details and try again (Error ID: {id})',
     unsupported: 'The request contains an option that is not supported yet. Refresh the page and try again. (Error ID: {id})',
     rateLimitedNoWait: 'Too many requests. Try again later.',
     timeout: 'Generation timed out. Try again later.',

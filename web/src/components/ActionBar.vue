@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { form, scopeTypes, metaState } from '@/lib/store'
+import { form, scopeTypes, metaState, downloadCooldown, downloadError } from '@/lib/store'
+import { useCooldownView } from '@/lib/cooldown'
 
 defineProps<{ narrow: boolean; generating: boolean; slow: boolean; invalidCount: number; showGuide: boolean }>()
 const emit = defineEmits<{ download: []; share: []; guide: []; closeAlert: [] }>()
@@ -11,6 +12,16 @@ const key = isMac ? '⌘' : 'Ctrl'
 const scopeName = computed(() => scopeTypes.value.find((v) => v.id === form.type)?.name ?? '')
 const summary = computed(() => t('bar.summary', { scope: scopeName.value, n: form.dependencies.length, pkg: form.packageName }))
 const blocked = computed(() => metaState.value !== 'ready')
+/** 下载 429：与预览同一套冷却文案与播报（lib/cooldown.ts），冷却各自独立 */
+const live = ref('')
+const { limited, text: rateText } = useCooldownView(downloadCooldown, downloadError, live, t)
+/** 主操作按钮名字始终是「下载 ZIP」，冷却中只在后面加秒数 */
+const coolLabel = computed(() => t('cooldown.downloadIn', { s: downloadCooldown.remaining.value }))
+const cooling = downloadCooldown.active
+/** 提示拆成「文案 + 分隔」与「（错误编号：xxx）」两段；编号段 nowrap，整段换行，不在「错误编号：」后断开 */
+const rateHint = computed(() => limited.value)
+const rateMsg = computed(() => rateText.value + t('bar.idSep'))
+const rateId = computed(() => t('bar.idPart', { id: downloadError.value?.requestId || '-' }))
 const downloadTip = computed(() =>
   metaState.value === 'error' ? t('bar.disabledMeta') : metaState.value === 'loading' ? t('bar.disabledLoading') : t('bar.shortcut', { key })
 )
@@ -24,14 +35,16 @@ const downloadTip = computed(() =>
     <div class="bar" role="region" :aria-label="t('bar.download')">
       <div class="inner">
         <div class="summary" :title="summary">{{ summary }}</div>
+        <div v-if="rateHint && narrow" class="rate rate-narrow"><span>{{ rateMsg }}</span><span class="rid">{{ rateId }}</span></div>
         <div class="btns">
-          <span v-if="slow && !narrow" class="slow" role="status">{{ t('bar.slow') }}</span>
+          <span v-if="rateHint && !narrow" class="rate"><span>{{ rateMsg }}</span><span class="rid">{{ rateId }}</span></span>
+          <span v-else-if="slow && !narrow" class="slow" role="status">{{ t('bar.slow') }}</span>
           <el-button v-if="showGuide && !narrow" link type="primary" @click="emit('guide')">{{ t('bar.guide') }}</el-button>
           <el-button class="b" @click="emit('share')">{{ t('bar.share') }}</el-button>
-          <el-tooltip :content="downloadTip" placement="top">
+          <el-tooltip :content="downloadTip" placement="top" :disabled="cooling">
             <span class="tipwrap" :tabindex="blocked ? 0 : -1">
-              <el-button class="b" type="primary" :loading="generating" :disabled="blocked" :aria-keyshortcuts="isMac ? 'Meta+Enter' : 'Control+Enter'" @click="emit('download')">
-                {{ generating ? t('bar.generating') : t('bar.download') }}
+              <el-button class="b" type="primary" :loading="generating" :disabled="blocked || cooling" :aria-keyshortcuts="isMac ? 'Meta+Enter' : 'Control+Enter'" @click="emit('download')">
+                {{ generating ? t('bar.generating') : cooling ? coolLabel : t('bar.download') }}
               </el-button>
             </span>
           </el-tooltip>
@@ -41,6 +54,7 @@ const downloadTip = computed(() =>
         <span v-if="slow" role="status">{{ t('bar.slow') }}</span>
         <el-button v-else link type="primary" @click="emit('guide')">{{ t('bar.guide') }}</el-button>
       </div>
+      <div class="sr-only" aria-live="polite">{{ live }}</div>
     </div>
   </div>
 </template>
@@ -56,6 +70,12 @@ const downloadTip = computed(() =>
 .b { white-space: nowrap; min-width: max-content; }
 .tipwrap { display: inline-flex; }
 .tipwrap:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 8px; }
+/* 限流提示：可换行、不截断，错误编号完整显示；宽屏限制宽度，长英文换成两行而不挤压按钮 */
+.rate { font-size: 13px; line-height: 18px; color: var(--el-text-color-secondary); white-space: normal; overflow-wrap: anywhere; max-width: 380px; text-align: right; }
+.rate-narrow { max-width: none; text-align: left; font-size: 12px; }
+/* 编号段整体不断行；max-width:100% 防止溢出，极窄（≤320px）时退回可断行（父级 overflow-wrap:anywhere 兜底） */
+.rid { display: inline-block; max-width: 100%; white-space: nowrap; }
+@media (max-width: 320px) { .rid { white-space: normal; } }
 .slow { font-size: 13px; color: var(--el-text-color-secondary); white-space: nowrap; }
 .sub { display: none; }
 @media (max-width: 639px) {
