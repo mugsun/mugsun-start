@@ -47,6 +47,14 @@ export function parseContentDisposition(v: string | null): string | undefined {
   return safe(plain ? (plain[2] ?? plain[1]).trim() : undefined)
 }
 
+/**
+ * 下载文件名（#10 §4.2：后端 Content-Disposition 为 <baseDir>.zip / <baseDir>.tar.gz，与压缩包根目录一致）：
+ * 优先响应头（filename* 解码优先于 filename），没有时用 baseDir（空则 artifactId）+ 扩展名。
+ */
+export function downloadFileName(header: string | null, req: Pick<ProjectRequest, 'baseDir' | 'artifactId'>, ext: '.zip' | '.tar.gz') {
+  return parseContentDisposition(header) ?? `${req.baseDir?.trim() || req.artifactId}${ext}`
+}
+
 /** 把非 2xx 响应解析为 ApiError（§4.4），容忍非 JSON 体 */
 export async function toApiError(res: Response): Promise<ApiError> {
   const headerId = res.headers.get('X-Request-Id') ?? undefined
@@ -120,7 +128,7 @@ export function createHttpApi(base: string, fetchFn: FetchLike): StartApi {
         const requestId = res.headers.get('X-Request-Id') ?? ''
         const ct = res.headers.get('Content-Type') ?? ''
         if (!ct.toLowerCase().startsWith('application/zip')) throw new ApiError(res.status, 'BAD_RESPONSE', `Unexpected Content-Type: ${ct}`, requestId)
-        const fileName = parseContentDisposition(res.headers.get('Content-Disposition')) ?? `${req.baseDir || req.artifactId}.zip`
+        const fileName = downloadFileName(res.headers.get('Content-Disposition'), req, '.zip')
         return { blob: await res.blob(), fileName, requestId }
       })
     }

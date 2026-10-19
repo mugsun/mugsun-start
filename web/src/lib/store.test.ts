@@ -16,14 +16,14 @@ describe('auto follow', () => {
     s.form.artifactId = 'my-app'
     await nextTick()
     expect(s.form.name).toBe('my-app')
-    expect(s.form.packageName).toBe('com.example.myapp')
+    expect(s.form.packageName).toBe('com.example.my_app')
     s.manual.packageName = true
     s.form.packageName = 'org.custom'
     s.form.groupId = 'org.x'
     await nextTick()
     expect(s.form.packageName).toBe('org.custom')
     s.restorePackage()
-    expect(s.form.packageName).toBe('org.x.myapp')
+    expect(s.form.packageName).toBe('org.x.my_app')
   })
   it('editing a field clears its server error', async () => {
     s.serverErrors.groupId = 'bad'
@@ -124,6 +124,8 @@ describe('server field errors', () => {
   })
   it('ignores unknown fields and other codes', () => {
     expect(s.applyServerErrors(invalid(['bootVersion']))).toBe(0)
+    expect(s.applyServerErrors(invalid(['body']))).toBe(0)
+    expect(s.applyServerErrors(invalid(['request', 'baseDir']))).toBe(0)
     expect(s.applyServerErrors(new ApiError(400, 'UNSUPPORTED_OPTION', 'm', 'r', [{ field: 'packageName', message: 'x' }]))).toBe(0)
     expect(s.serverErrors.packageName).toBeUndefined()
     expect(s.applyServerErrors(invalid(['packageName']))).toBe(1)
@@ -133,6 +135,7 @@ describe('server field errors', () => {
 describe('details {field, reason, message} (PR #4)', () => {
   const inv = (details: { field: string; reason?: string; message?: string }[]) => new ApiError(400, 'INVALID_PARAMETER', '', 'r', details)
   it('server message wins over reason', () => {
+    i18n.global.locale.value = 'zh-CN'
     s.applyServerErrors(inv([{ field: 'groupId', reason: 'pattern', message: '服务端的 Group 文案' }]))
     expect(s.serverErrors.groupId).toBe('服务端的 Group 文案')
   })
@@ -142,5 +145,57 @@ describe('details {field, reason, message} (PR #4)', () => {
     expect(s.serverErrors.groupId).toBe('请填写 Group。')
     expect(s.serverErrors.packageName).toContain('Java 关键字')
     expect(s.serverErrors.artifactId).toContain('Artifact 只能包含')
+  })
+})
+
+describe('details messages pass the same guard', () => {
+  const inv = (message: string) => new ApiError(400, 'INVALID_PARAMETER', '', 'r', [{ field: 'groupId', reason: 'pattern', message }])
+  it('stack / wrong language / too long fall back to field+reason text', () => {
+    i18n.global.locale.value = 'zh-CN'
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    for (const m of ['java.lang.IllegalStateException\n\tat x', 'The group is invalid.', '错'.repeat(201)]) {
+      s.applyServerErrors(inv(m))
+      expect(s.serverErrors.groupId).toBe('Group 只能包含小写字母、数字、下划线和点，且不能以数字开头。')
+    }
+    s.applyServerErrors(inv('服务端的 Group 文案'))
+    expect(s.serverErrors.groupId).toBe('服务端的 Group 文案')
+  })
+})
+
+describe('preview 429 (#9): wait seconds, no retry storm', () => {
+  it('429 sets a cooldown from Retry-After; changes during it collapse into one request after it', async () => {
+    vi.useFakeTimers()
+    try {
+      const spy = vi.spyOn(api, 'preview').mockRejectedValueOnce(new ApiError(429, 'RATE_LIMITED', 'x', 'r', [], 1))
+      await s.loadPreview()
+      expect(s.previewError.value?.retryAfter).toBe(1)
+      expect(s.previewCooldownUntil.value).toBeGreaterThan(Date.now())
+      spy.mockResolvedValue({ requestId: 'r2', root: 'demo', fileCount: 0, dirCount: 0, truncated: false, tree: [] })
+      s.form.artifactId = 'x1'; await s.loadPreview()
+      s.form.artifactId = 'x2'; await s.loadPreview()
+      s.form.artifactId = 'x3'; await s.loadPreview()
+      expect(spy).toHaveBeenCalledTimes(1)
+      await vi.advanceTimersByTimeAsync(1000)
+      expect(spy).toHaveBeenCalledTimes(2)
+      await vi.advanceTimersByTimeAsync(10_000)
+      expect(spy).toHaveBeenCalledTimes(2)
+      expect(s.previewState.value).toBe('ready')
+    } finally { vi.useRealTimers() }
+  })
+  it('calls during cooldown without a form change send nothing when it ends', async () => {
+    vi.useFakeTimers()
+    try {
+      const spy = vi.spyOn(api, 'preview').mockRejectedValueOnce(new ApiError(429, 'RATE_LIMITED', 'x', 'r', [], 1))
+      await s.loadPreview()
+      await s.loadPreview(); await s.loadPreview()
+      await vi.advanceTimersByTimeAsync(5000)
+      expect(spy).toHaveBeenCalledTimes(1)
+    } finally { vi.useRealTimers() }
+  })
+  it('without Retry-After uses the default cooldown', async () => {
+    vi.spyOn(api, 'preview').mockRejectedValueOnce(new ApiError(429, 'RATE_LIMITED', '', 'r'))
+    const t0 = Date.now()
+    await s.loadPreview()
+    expect(s.previewCooldownUntil.value - t0).toBeGreaterThanOrEqual(s.PREVIEW_COOLDOWN_DEFAULT * 1000 - 50)
   })
 })

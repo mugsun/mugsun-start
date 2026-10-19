@@ -12,22 +12,22 @@ permissions:
 
 jobs:
   build:
-    name: Typecheck, lint, test & build
+    name: Typecheck, lint, test, build & e2e
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: web
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Skip when web/ is absent
         if: hashFiles('web/pnpm-lock.yaml') == ''
         working-directory: .
         run: echo "web/ not present on this ref; skipping web checks."
-      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         if: hashFiles('web/pnpm-lock.yaml') != ''
         with:
           version: 11.9.0
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         if: hashFiles('web/pnpm-lock.yaml') != ''
         with:
           node-version: '22'
@@ -58,3 +58,34 @@ jobs:
             echo "::error::production build without VITE_API_BASE should fail"; exit 1
           fi
           grep -q 'VITE_API_BASE=/' guard.log && echo "guard ok"
+      # 布局 e2e（提示遮挡/按钮等宽等），走前端 mock，不依赖后端；构建产物用 vite preview 提供，比 dev server 稳定
+      - name: Playwright version
+        id: pw
+        if: hashFiles('web/pnpm-lock.yaml') != ''
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: Cache Playwright browsers
+        id: pw-cache
+        if: hashFiles('web/pnpm-lock.yaml') != ''
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}-chromium
+      - name: Install Playwright chromium
+        if: hashFiles('web/pnpm-lock.yaml') != '' && steps.pw-cache.outputs.cache-hit != 'true'
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Install Playwright system deps
+        if: hashFiles('web/pnpm-lock.yaml') != '' && steps.pw-cache.outputs.cache-hit == 'true'
+        run: pnpm exec playwright install-deps chromium
+      - name: E2E (layout)
+        if: hashFiles('web/pnpm-lock.yaml') != ''
+        env:
+          BASE: http://127.0.0.1:3093
+        run: pnpm e2e:ci
+      - name: Upload e2e artifacts
+        if: failure() && hashFiles('web/pnpm-lock.yaml') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-artifacts
+          path: web/e2e-artifacts/
+          if-no-files-found: ignore
+          retention-days: 7

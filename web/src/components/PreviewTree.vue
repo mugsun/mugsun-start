@@ -3,8 +3,10 @@ import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useDebounceFn, useMediaQuery } from '@vueuse/core'
 import { Folder, FolderOpened, Document, WarningFilled } from '@element-plus/icons-vue'
-import { form, metaState, preview, previewState, previewError, loadPreview, optional } from '@/lib/store'
+import { form, metaState, preview, previewState, previewError, loadPreview, optional, previewCooldown } from '@/lib/store'
 import { loc } from '@/lib/l10n'
+import { formDetails } from '@/lib/fieldErrors'
+import { useCooldownView } from '@/lib/cooldown'
 import type { PreviewNode } from '@/api'
 
 const { t, locale } = useI18n()
@@ -50,6 +52,9 @@ watch(waiting, (w) => {
   clearTimeout(skTimer); showSkeleton.value = false
   if (w) skTimer = setTimeout(() => (showSkeleton.value = true), 200)
 }, { immediate: true })
+/** 429：冷却逻辑与文案见 lib/cooldown.ts（与底栏下载共用） */
+const { limited, text: rateText, button: retryLabel } = useCooldownView(previewCooldown, previewError, live, t)
+const retryIn = previewCooldown.remaining
 onBeforeUnmount(() => { clearTimeout(hlTimer); clearTimeout(skTimer) })
 </script>
 
@@ -63,11 +68,11 @@ onBeforeUnmount(() => { clearTimeout(hlTimer); clearTimeout(skTimer) })
       <template v-if="waiting">
         <el-skeleton v-if="showSkeleton" :rows="3" animated />
       </template>
-      <div v-else-if="previewState === 'error' && !preview" class="perr" role="alert">
+      <div v-else-if="previewState === 'error' && !preview" class="perr" :role="limited ? undefined : 'alert'">
         <el-icon :size="28" class="err-icon" aria-hidden="true"><WarningFilled /></el-icon>
-        <span>{{ previewError?.code === 'INVALID_PARAMETER' ? t('preview.invalid') : previewError?.code === 'UNSUPPORTED_OPTION' ? t('preview.unsupported') : t('preview.error') }}</span>
-        <span v-if="previewError?.requestId" class="rid">{{ t('preview.requestId', { id: previewError.requestId }) }}</span>
-        <el-button size="small" @click="loadPreview()">{{ t('modules.retry') }}</el-button>
+        <span>{{ limited ? rateText : previewError?.code === 'INVALID_PARAMETER' ? (formDetails(previewError.details).length ? t('preview.invalid') : t('bar.invalidOther', { id: previewError.requestId || '-' })) : previewError?.code === 'UNSUPPORTED_OPTION' ? t('preview.unsupported') : t('preview.error') }}</span>
+        <span v-if="previewError?.requestId && !(previewError.code === 'INVALID_PARAMETER' && !formDetails(previewError.details).length)" class="rid">{{ t('preview.requestId', { id: previewError.requestId }) }}</span>
+        <el-button size="small" :disabled="retryIn > 0" @click="loadPreview()">{{ retryIn > 0 ? retryLabel : t('modules.retry') }}</el-button>
       </div>
       <el-empty v-else-if="!tree.length" :description="t('preview.empty')" :image-size="64" />
       <el-tree
@@ -88,7 +93,7 @@ onBeforeUnmount(() => { clearTimeout(hlTimer); clearTimeout(skTimer) })
       </el-tree>
     </div>
     <p v-if="preview?.truncated" class="note">{{ t('preview.truncated') }}</p>
-    <p v-else-if="previewState === 'error' && preview" class="note" role="status">{{ t('preview.stale') }}</p>
+    <p v-else-if="previewState === 'error' && preview" class="note" :role="limited ? undefined : 'status'">{{ limited ? `${t('preview.stale')} ${rateText}` : t('preview.stale') }}</p>
     <div class="sr-only" aria-live="polite">{{ live }}</div>
   </section>
 </template>

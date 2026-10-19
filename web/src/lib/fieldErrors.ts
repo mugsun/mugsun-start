@@ -1,4 +1,9 @@
-import type { FieldName } from '@/api'
+import type { ErrorDetail, FieldName } from '@/api'
+
+/** 能回填到表单的字段；其余字段（body、request、baseDir、dependencies…）一律走通用 bar.invalidOther */
+export const FORM_FIELDS: readonly FieldName[] = ['groupId', 'artifactId', 'name', 'packageName', 'description']
+export const formDetails = (details: readonly ErrorDetail[] | undefined) =>
+  (details ?? []).filter((d) => FORM_FIELDS.includes(d.field as FieldName))
 
 /** 字段 + reason → 前端 i18n 文案 key（表单前端校验与服务端 details 无 message 时共用） */
 export const FIELD_ERROR_KEYS: Record<string, Partial<Record<string, string>>> = {

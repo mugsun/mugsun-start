@@ -54,8 +54,16 @@ describe('mock preview (§4.3, structure = §4.2 zip)', () => {
     expect(p.fileCount).toBe(flat(p.tree).filter((n) => n.type === 'file').length)
     expect(p.truncated).toBe(false)
   })
-  it('fullstack: module dirs tagged; dirs first', () => {
+  it('default nodes match #5 (name/path/type[/size], no module); dirs first', () => {
     const p = buildPreview({ ...base, dependencies: ['gis'] }, 'r')
+    expect(Object.keys(p)).toEqual(['requestId', 'root', 'fileCount', 'dirCount', 'truncated', 'tree'])
+    const nodes = flat(p.tree)
+    expect(nodes.every((n) => !('module' in n))).toBe(true)
+    for (const n of nodes) expect(Object.keys(n)).toEqual(n.type === 'file' ? ['name', 'path', 'type', 'size'] : ['name', 'path', 'type', 'children'])
+    expect(p.tree[0].children![0].type).toBe('dir')
+  })
+  it('preview-modules mode: module dirs tagged (S4 plan, optional)', () => {
+    const p = buildPreview({ ...base, dependencies: ['gis'] }, 'r', true)
     const nodes = flat(p.tree)
     expect(nodes.find((n) => n.path === 'demo/demo-pc/modules/gis')?.module).toBe('gis')
     expect(nodes.find((n) => n.path === 'demo/demo-pc/modules/gis/routes.ts')?.module).toBe('gis')
@@ -75,6 +83,18 @@ describe('mock via http api', () => {
   it('truncated is always present', async () => {
     expect((await api.preview(base, { locale: 'en' })).truncated).toBe(false)
   })
+  it('keywords follow the backend: com.record.x ok, com._ rejected', async () => {
+    expect((await api.preview({ ...base, packageName: 'com.record.x' }, { locale: 'en' })).truncated).toBe(false)
+    const e = await api.preview({ ...base, packageName: 'com._' }, { locale: 'en' }).catch((x) => x)
+    expect(e.details[0]).toMatchObject({ field: 'packageName', reason: 'keyword' })
+  })
+  it('gen-stack returns an English stack trace on field=request', async () => {
+    setMockMode('gen-stack')
+    const e = await api.generate(base, { locale: 'zh-CN' }).catch((x) => x)
+    expect(e.code).toBe('INVALID_PARAMETER')
+    expect(e.details[0].field).toBe('request')
+    expect(e.message).toContain('\tat ')
+  })
   it('package keyword/literal → INVALID_PARAMETER on packageName', async () => {
     for (const p of ['com.class', 'com.null']) {
       const e = await api.preview({ ...base, packageName: p }, { locale: 'en' }).catch((x) => x)
@@ -86,6 +106,33 @@ describe('mock via http api', () => {
     expect(e).toMatchObject({ status: 400, code: 'UNSUPPORTED_OPTION' })
     setMockMode('gen-unsupported')
     expect(await api.generate(base, { locale: 'en' }).catch((x) => x)).toMatchObject({ code: 'UNSUPPORTED_OPTION' })
+  })
+  it('preview-body-invalid: 400 INVALID_PARAMETER with details [{field:"body",reason:"invalid"}] (#5 JSON parse error)', async () => {
+    setMockMode('preview-body-invalid')
+    const e = await api.preview(base, { locale: 'zh-CN' }).catch((x) => x)
+    expect(e).toMatchObject({ status: 400, code: 'INVALID_PARAMETER' })
+    expect(e.details).toEqual([{ field: 'body', reason: 'invalid', message: '请求体不是有效的 JSON，或字段类型不正确。' }])
+  })
+  it('preview-429 carries Retry-After; gen-406/gen-415 return the #10 codes', async () => {
+    setMockMode('preview-429')
+    expect(await api.preview(base, { locale: 'en' }).catch((x) => x)).toMatchObject({ status: 429, code: 'RATE_LIMITED', retryAfter: 30 })
+    setMockMode('gen-406')
+    expect(await api.generate(base, { locale: 'zh-CN' }).catch((x) => x)).toMatchObject({ status: 406, code: 'NOT_ACCEPTABLE', message: '无法按请求的格式返回结果，请接受 JSON 格式的响应。' })
+    setMockMode('gen-415')
+    expect(await api.generate(base, { locale: 'en' }).catch((x) => x)).toMatchObject({ status: 415, code: 'UNSUPPORTED_MEDIA_TYPE', message: "This request body format isn't supported." })
+  })
+  it('download-429: Retry-After 2; every 429 carries Retry-After; zip name = baseDir.zip', async () => {
+    setMockMode('download-429')
+    expect(await api.generate(base, { locale: 'zh-CN' }).catch((x) => x)).toMatchObject({ status: 429, code: 'RATE_LIMITED', retryAfter: 2, message: '请求过于频繁，请在 2 秒后重试。' })
+    setMockMode(null)
+    const g = await api.generate({ ...base, baseDir: 'shop-root', artifactId: 'shop' }, { locale: 'en' })
+    expect(g.fileName).toBe('shop-root.zip')
+    const g2 = await api.generate({ ...base, baseDir: '', artifactId: 'shop' }, { locale: 'en' })
+    expect(g2.fileName).toBe('shop.zip')
+  })
+  it('preview root falls back to artifactId when baseDir is empty (#10)', () => {
+    expect(buildPreview({ ...base, baseDir: '' }, 'r').root).toBe('demo')
+    expect(buildPreview({ ...base, baseDir: undefined }, 'r').root).toBe('demo')
   })
   it('UNKNOWN_DEPENDENCY and an INVALID_PARAMETER field outside the form', async () => {
     expect(await api.generate({ ...base, dependencies: ['legacy'] }, { locale: 'zh-CN' }).catch((x) => x)).toMatchObject({ code: 'UNKNOWN_DEPENDENCY', message: '未知的模块：legacy。' })

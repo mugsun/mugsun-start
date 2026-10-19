@@ -97,6 +97,7 @@ export interface PreviewNode {
   path: string
   type: 'dir' | 'file'
   size?: number
+  /** S4 才有（#5 未返回）：前端只作可选装饰，不依赖 */
   module?: string | null
   /** truncated 时目录节点只给数量，不给 children */
   childCount?: number
@@ -123,7 +124,7 @@ export interface ErrorBody { code: string; message: string; requestId?: string; 
 
 export type ErrorCode =
   | 'INVALID_PARAMETER' | 'UNKNOWN_DEPENDENCY' | 'UNSUPPORTED_OPTION' | 'DEPENDENCY_NOT_APPLICABLE'
-  | 'DEPENDENCY_CONFLICT' | 'DEPENDENCY_REQUIRES' | 'NOT_FOUND' | 'METHOD_NOT_ALLOWED' | 'RATE_LIMITED'
+  | 'DEPENDENCY_CONFLICT' | 'DEPENDENCY_REQUIRES' | 'NOT_FOUND' | 'METHOD_NOT_ALLOWED' | 'NOT_ACCEPTABLE' | 'UNSUPPORTED_MEDIA_TYPE' | 'RATE_LIMITED'
   | 'GENERATION_FAILED' | 'INTERNAL_ERROR' | 'TEMPLATE_UNAVAILABLE'
   /** 以下为前端自定义 */
   | 'TIMEOUT' | 'NETWORK' | 'BAD_RESPONSE' | (string & {})

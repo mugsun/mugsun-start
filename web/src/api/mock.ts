@@ -11,8 +11,15 @@
  *   gen-invalid   生成返回 400 INVALID_PARAMETER（groupId 与 packageName）
  *   gen-unsupported 生成返回 400 UNSUPPORTED_OPTION
  *   gen-unknown-dep 生成返回 400 UNKNOWN_DEPENDENCY
+ *   gen-stack     生成返回 400 INVALID_PARAMETER（field=request），message 是英文 Java 堆栈（看前端守卫）
  *   gen-invalid-noreason 生成返回 INVALID_PARAMETER，details 只有 reason、message 为空
  *   gen-invalid-other 生成返回 400 INVALID_PARAMETER，但 field 不在表单里（baseDir）
+ *   preview-body-invalid 预览返回 400 INVALID_PARAMETER，details [{field:"body",reason:"invalid"}]（#5：JSON 解析失败）
+ *   gen-406 / gen-415 生成返回 406 NOT_ACCEPTABLE / 415 UNSUPPORTED_MEDIA_TYPE（#10）
+ *   preview-429   预览返回 429 RATE_LIMITED，Retry-After: 30（#9 并发名额等待超时）
+ *   download-429  下载返回 429 RATE_LIMITED，Retry-After: 2（#9：zip/tgz 与预览共用并发名额）
+ *   preview-429-short 同上，Retry-After: 2（看倒计时结束）
+ *   preview-modules 预览节点带 module（S4 计划字段，#5 不返回；默认不带）
  *   请求里出现非默认的 bootVersion/javaVersion/packaging/language/configurationFileFormat 也返回 UNSUPPORTED_OPTION
  */
 import { isReservedSegment } from '../lib/validate'
@@ -120,7 +127,7 @@ export function previewPaths(req: ProjectRequest): [string, string | null][] {
 }
 
 /** 路径列表 → §4.3 的树（目录在前，同类按名称升序） */
-export function toTree(entries: [string, string | null][]): PreviewNode[] {
+export function toTree(entries: [string, string | null][], withModules = false): PreviewNode[] {
   const root: PreviewNode = { name: '', path: '', type: 'dir', children: [] }
   for (const [p, mod] of entries) {
     const parts = p.split('/')
@@ -130,11 +137,11 @@ export function toTree(entries: [string, string | null][]): PreviewNode[] {
       const isFile = i === parts.length - 1
       let next = cur.children!.find((c) => c.name === name)
       if (!next) {
-        next = isFile ? { name, path, type: 'file', size: 1024, module: mod } : { name, path, type: 'dir', module: null, children: [] }
+        next = isFile ? { name, path, type: 'file', size: 1024, ...(withModules && mod ? { module: mod } : {}) } : { name, path, type: 'dir', children: [] }
         cur.children!.push(next)
       }
       // 模块独占目录（modules/<f>）标上模块
-      if (!isFile && mod && path.endsWith(`/modules/${mod}`)) next.module = mod
+      if (withModules && !isFile && mod && path.endsWith(`/modules/${mod}`)) next.module = mod
       cur = next
     })
   }
@@ -146,9 +153,10 @@ export function toTree(entries: [string, string | null][]): PreviewNode[] {
   return root.children!
 }
 
-export function buildPreview(req: ProjectRequest, requestId: string): PreviewResult {
+/** 对齐 #5 PreviewController：{requestId, root, fileCount, dirCount, truncated, tree}；节点 name/path/type/size，无 module */
+export function buildPreview(req: ProjectRequest, requestId: string, withModules = false): PreviewResult {
   const entries = previewPaths(req)
-  const tree = toTree(entries)
+  const tree = toTree(entries, withModules)
   let dirs = 0
   const walk = (n: PreviewNode[]) => n.forEach((x) => { if (x.type === 'dir') { dirs++; walk(x.children ?? []) } })
   walk(tree)
@@ -174,7 +182,8 @@ const DETAIL: Record<string, L10n> = {
   'packageName.pattern': l('包名须由小写字母、数字和下划线组成的段以点连接，各段不能以数字开头。', 'The package name must be dot-separated segments of lowercase letters, digits and underscores that do not start with a digit.'),
   'packageName.keyword': l('包名中的 {0} 是 Java 关键字或保留字面量，不能用作包名的一段。', 'The segment {0} is a Java keyword or literal and cannot be used in a package name.'),
   'description.maxLength': l('描述最长 200 个字符。', 'The description can be up to 200 characters.'),
-  'baseDir.pattern': l('根目录名只能包含字母、数字、点、下划线和连字符，最长 64 个字符。', 'The root folder name can only contain letters, digits, dots, underscores and hyphens, up to 64 characters.')
+  'baseDir.pattern': l('根目录名只能包含字母、数字、点、下划线和连字符，最长 64 个字符。', 'The root folder name can only contain letters, digits, dots, underscores and hyphens, up to 64 characters.'),
+  'body.invalid': l('请求体不是有效的 JSON，或字段类型不正确。', 'The request body is not valid JSON, or a field has the wrong type.')
 }
 const ERROR: Record<string, L10n> = {
   INVALID_PARAMETER: l('请求参数不符合要求，请检查标出的字段。', 'Some parameters are invalid. Check the fields listed in details.'),
@@ -184,7 +193,9 @@ const ERROR: Record<string, L10n> = {
   RATE_LIMITED: l('请求过于频繁，请在 {0} 秒后重试。', 'Too many requests. Try again in {0} seconds.'),
   GENERATION_FAILED: l('生成失败，请稍后重试。反馈问题时请附上请求编号。', 'Generation failed. Try again later, and include the request ID if you report the problem.'),
   TEMPLATE_UNAVAILABLE: l('模板暂不可用，请稍后重试。', 'The template is unavailable. Try again later.'),
-  NOT_FOUND: l('请求的地址不存在。', 'The requested resource does not exist.')
+  NOT_FOUND: l('请求的地址不存在。', 'The requested resource does not exist.'),
+  NOT_ACCEPTABLE: l('无法按请求的格式返回结果，请接受 JSON 格式的响应。', "The response can't be returned in the requested format. Accept a JSON response."),
+  UNSUPPORTED_MEDIA_TYPE: l('不支持该请求体格式。', "This request body format isn't supported.")
 }
 const fmt = (s: string, args: unknown[]) => s.replace(/\{(\d)\}/g, (_m, i) => String(args[Number(i)] ?? ''))
 type Problem = { field: string; reason: string; args?: unknown[] }
@@ -194,6 +205,8 @@ function detail(p: Problem, lang: 'zh' | 'en'): ErrorDetail {
 }
 /** 与后端 ErrorResponses#body 一致：INVALID_PARAMETER 只有一项时 message 取该项，否则取错误码文案 */
 function problemResponse(status: number, code: string, problems: Problem[], lang: 'zh' | 'en', id: string, extra: Record<string, string> = {}) {
+  // #10：每个 429 都带 Retry-After，缺省 1 秒
+  if (status === 429 && extra['Retry-After'] === undefined) extra = { ...extra, 'Retry-After': '1' }
   const details = problems.map((p) => detail(p, lang))
   const joined = [...new Set(problems.map((p) => String(p.args?.[0] ?? p.field)))].join(', ')
   const message = code === 'INVALID_PARAMETER' && details.length === 1 ? (details[0].message ?? '') : fmt((ERROR[code] ?? l(code, code))[lang], [extra['Retry-After'] ?? joined])
@@ -294,21 +307,31 @@ export async function mockFetch(url: string, init?: RequestInit): Promise<Respon
   if (path === '/api/v1/preview') {
     await wait(120, signal)
     if (mode === 'preview-error') return problemResponse(500, 'GENERATION_FAILED', [], lang, id)
+    if (mode === 'preview-429' || mode === 'preview-429-short') return problemResponse(429, 'RATE_LIMITED', [], lang, id, { 'Retry-After': mode === 'preview-429' ? '30' : '2' })
+    if (mode === 'preview-body-invalid') return problemResponse(400, 'INVALID_PARAMETER', [{ field: 'body', reason: 'invalid' }], lang, id)
     const req = readRequest(init)
     const bad = serverCheck(req, lang, id)
     if (bad) return bad
-    return json(200, buildPreview(req, id), id)
+    return json(200, buildPreview(req, id, mode === 'preview-modules'), id)
   }
   if (path === '/starter.zip') {
     if (mode === 'gen-slow') await hang(signal)
     await wait(600, signal)
     if (mode === 'gen-fail') return problemResponse(500, 'GENERATION_FAILED', [], lang, id)
+    if (mode === 'gen-406') return problemResponse(406, 'NOT_ACCEPTABLE', [], lang, id)
+    if (mode === 'gen-415') return problemResponse(415, 'UNSUPPORTED_MEDIA_TYPE', [], lang, id)
+    if (mode === 'download-429') return problemResponse(429, 'RATE_LIMITED', [], lang, id, { 'Retry-After': '2' })
     if (mode === 'gen-429') return problemResponse(429, 'RATE_LIMITED', [], lang, id, { 'Retry-After': '30' })
     const req = readRequest(init)
     if (mode === 'gen-unknown-dep') return problemResponse(400, 'UNKNOWN_DEPENDENCY', [{ field: 'dependencies', reason: 'unknown', args: ['legacy-report'] }], lang, id)
     if (mode === 'gen-invalid-other') return problemResponse(400, 'INVALID_PARAMETER', [{ field: 'baseDir', reason: 'pattern' }], lang, id)
     if (mode === 'gen-unsupported') return problemResponse(400, 'UNSUPPORTED_OPTION', [{ field: 'bootVersion', reason: 'unsupported', args: ['3.4.0'] }], lang, id)
     if (mode === 'gen-invalid') return problemResponse(400, 'INVALID_PARAMETER', [{ field: 'groupId', reason: 'pattern' }, { field: 'packageName', reason: 'keyword', args: ['class'] }], lang, id)
+    if (mode === 'gen-stack') {
+      const stack = 'java.lang.IllegalStateException: Cannot parse request body\n\tat com.mugsun.start.web.MugsunProjectRequestConverter.convert(MugsunProjectRequestConverter.java:24)\n\tat org.springframework.web.servlet.FrameworkServlet.service(FrameworkServlet.java:885)'
+      const body: ErrorBody = { code: 'INVALID_PARAMETER', message: stack, requestId: id, details: [{ field: 'request', reason: 'invalid', message: stack }] }
+      return json(400, body, id)
+    }
     if (mode === 'gen-invalid-noreason') {
       // 服务端没给 message 时，前端按 reason 显示自己的文案
       const body: ErrorBody = { code: 'INVALID_PARAMETER', message: '', requestId: id, details: [{ field: 'groupId', reason: 'required', message: '' }] }
@@ -316,7 +339,7 @@ export async function mockFetch(url: string, init?: RequestInit): Promise<Respon
     }
     const bad = serverCheck(req, lang, id)
     if (bad) return bad
-    const root = req.baseDir || req.artifactId
+    const root = req.baseDir?.trim() || req.artifactId
     const text = `前端 mock 数据：真实接口接入前不生成工程。\n${JSON.stringify(req, null, 2)}\n`
     return new Response(text, { status: 200, headers: { 'Content-Type': 'application/zip', 'Content-Disposition': `attachment; filename="${root}.zip"`, 'X-Request-Id': id, 'X-Mugsun-Template': 'boot=mock;pc=mock' } })
   }

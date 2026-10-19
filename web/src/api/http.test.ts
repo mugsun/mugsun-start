@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { toFormParams, toJsonBody, parseRetryAfter, parseContentDisposition, toApiError, createHttpApi, type FetchLike } from './http'
+import { toFormParams, toJsonBody, parseRetryAfter, parseContentDisposition, toApiError, createHttpApi, downloadFileName, type FetchLike } from './http'
 import { ApiError, type ProjectRequest } from './types'
 
 const req: ProjectRequest = {
@@ -43,6 +43,13 @@ describe('error body (§4.4)', () => {
   it('parses code/message/requestId/details', async () => {
     const e = await toApiError(new Response(JSON.stringify({ code: 'INVALID_PARAMETER', message: 'm', requestId: '01J', details: [{ field: 'groupId', message: 'x' }] }), { status: 400, headers: { 'Content-Type': 'application/json' } }))
     expect([e.status, e.code, e.message, e.requestId, e.details[0].field]).toEqual([400, 'INVALID_PARAMETER', 'm', '01J', 'groupId'])
+  })
+  it('#10 Tomcat/error-page 400: JSON with charset, field=request, X-Request-Id', async () => {
+    const e = await toApiError(new Response(JSON.stringify({ code: 'INVALID_PARAMETER', message: '请求参数不符合要求，请检查标出的字段。', requestId: 't-1', details: [{ field: 'request', reason: 'invalid', message: '请求参数不正确。' }] }), { status: 400, headers: { 'Content-Type': 'application/json;charset=UTF-8', 'X-Request-Id': 't-1' } }))
+    expect(e).toMatchObject({ status: 400, code: 'INVALID_PARAMETER', requestId: 't-1' })
+    expect(e.details[0].field).toBe('request')
+    const n = await toApiError(new Response(JSON.stringify({ code: 'NOT_ACCEPTABLE', message: 'm' }), { status: 406, headers: { 'Content-Type': 'application/json; charset=utf-8', 'X-Request-Id': 'h-2' } }))
+    expect(n).toMatchObject({ status: 406, code: 'NOT_ACCEPTABLE', requestId: 'h-2' })
   })
   it('falls back to header requestId and HTTP code for non-JSON', async () => {
     const e = await toApiError(new Response('<html>', { status: 502, statusText: 'Bad Gateway', headers: { 'X-Request-Id': 'h-1' } }))
@@ -167,3 +174,19 @@ describe('empty values are treated the same in zip and preview requests', () => 
     expect(parseContentDisposition("attachment; filename*=UTF-8''..%2F..%5Cx.zip")).toBe('.._.._x.zip')
   })
 })
+
+describe('download file name (#10 §4.2)', () => {
+  const r = { baseDir: 'shop-admin', artifactId: 'shop' }
+  it('prefers the header: filename* (decoded) over filename', () => {
+    expect(downloadFileName(`attachment; filename="x.zip"; filename*=UTF-8''%E4%B8%AD%E6%96%87.zip`, r, '.zip')).toBe('中文.zip')
+    expect(downloadFileName('attachment; filename="shop-admin.tar.gz"', r, '.tar.gz')).toBe('shop-admin.tar.gz')
+  })
+  it('falls back to baseDir, then artifactId, plus extension', () => {
+    expect(downloadFileName(null, r, '.zip')).toBe('shop-admin.zip')
+    expect(downloadFileName('attachment', r, '.tar.gz')).toBe('shop-admin.tar.gz')
+    expect(downloadFileName(null, { baseDir: '', artifactId: 'shop' }, '.zip')).toBe('shop.zip')
+    expect(downloadFileName(null, { baseDir: '  ', artifactId: 'shop' }, '.zip')).toBe('shop.zip')
+    expect(downloadFileName(null, { artifactId: 'shop' }, '.tar.gz')).toBe('shop.tar.gz')
+  })
+})
+
