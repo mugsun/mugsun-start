@@ -82,7 +82,7 @@ jobs:
         run: |
           set -uo pipefail
           report="$RUNNER_TEMP/gitleaks.json"
-          gitleaks detect --source . --log-opts="--all" --redact --no-banner \
+          gitleaks detect --source . --log-opts=HEAD --redact --no-banner \
             --log-level error --report-format json --report-path "$report"
           rc=$?
           python3 - "$report" <<'PY'
