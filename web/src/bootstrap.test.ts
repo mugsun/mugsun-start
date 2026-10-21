@@ -46,6 +46,8 @@ describe('bootstrap', () => {
     const styles = document.head.querySelectorAll('style#boot-error-style')
     expect(styles).toHaveLength(1)
     expect(styles[0].textContent).toBe(BOOT_ERROR_CSS)
+    expect(BOOT_ERROR_CSS).toContain('.boot-error{background:#fef0f0;color:#a8071a;border:1px solid #e04f4f}')
+    expect(BOOT_ERROR_CSS).not.toContain('#f56c6c')
     expect(BOOT_ERROR_CSS).toMatch(/@media \(prefers-color-scheme: dark\)\{\.boot-error\{background:#2b1d1d;color:#ffa39e;/)
     expect(root.querySelector('[role="alert"]')!.classList.contains('boot-error')).toBe(true)
   })

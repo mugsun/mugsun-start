@@ -15,10 +15,10 @@ const STYLE_ID = 'boot-error-style'
 /**
  * 配色用带 media query 的 <style>（兼容性优于 light-dark()），文案仍只走 textContent。
  * 对比度（WCAG）：亮色 #a8071a/#fef0f0 = 6.99:1；暗色 #ffa39e/#2b1d1d = 8.47:1（均 ≥ AA 4.5:1）；
- * 暗色边框 #b35656/#2b1d1d = 3.38:1（图形 ≥ 3:1）。
+ * 边框（图形 ≥ 3:1）：亮色 #e04f4f/#fef0f0 = 3.51:1；暗色 #b35656/#2b1d1d = 3.38:1。
  */
 export const BOOT_ERROR_CSS =
-  '.boot-error{background:#fef0f0;color:#a8071a;border:1px solid #f56c6c}' +
+  '.boot-error{background:#fef0f0;color:#a8071a;border:1px solid #e04f4f}' +
   '@media (prefers-color-scheme: dark){.boot-error{background:#2b1d1d;color:#ffa39e;border-color:#b35656}}'
 
 function ensureStyle(): void {
