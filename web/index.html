@@ -11,7 +11,8 @@
       try {
         var s = localStorage.getItem('start-mugsun-theme')
         if (s === 'dark' || ((!s || s === 'auto') && matchMedia('(prefers-color-scheme: dark)').matches)) document.documentElement.classList.add('dark')
-        // 手动选亮色时加 .light（与 App.vue useDark 的 valueLight 一致），让不依赖应用的样式（如启动错误页）能区分「手动亮色」与「跟随系统」
+        // 手动选亮色时加 .light（与 App.vue useDark 的 valueLight 一致），让不依赖应用的样式（如启动错误页）能区分「手动亮色」与「跟随系统」；
+        // 运行时 auto 加系统亮色，useDark 也会加 .light（首帧这里不加，系统亮色本就走亮色）
         else if (s === 'light') document.documentElement.classList.add('light')
       } catch (e) {}
     </script>

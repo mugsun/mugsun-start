@@ -1,8 +1,14 @@
 // @vitest-environment jsdom
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { BOOT_ERROR_CSS, bootstrap } from './bootstrap'
 import indexHtml from '../index.html?raw'
 import { API_BASE_MISSING_MESSAGE, resolveApiMode } from './api/mode'
+
+afterEach(() => {
+  vi.restoreAllMocks()
+  vi.unstubAllGlobals()
+  document.documentElement.className = ''
+})
 
 describe('bootstrap', () => {
   it('模块求值期抛出 API_BASE_MISSING_MESSAGE 时显示到 #app（role=alert，纯文本）', async () => {
@@ -63,8 +69,14 @@ describe('bootstrap', () => {
 })
 
 /** 运行 index.html 的首帧主题脚本（真实文件内容），模拟 localStorage 与系统偏好 */
+function themeScriptCode(): string {
+  const match = /<script>([\s\S]*?)<\/script>/.exec(indexHtml)
+  expect(match, 'index.html 里找不到首帧主题内联 <script>（无属性的 <script>…</script>）；若改了写法请同步更新本测试的正则').not.toBeNull()
+  return match![1]
+}
+
 function runThemeScript(stored: string | null, systemDark: boolean) {
-  const code = /<script>([\s\S]*?)<\/script>/.exec(indexHtml)![1]
+  const code = themeScriptCode()
   document.documentElement.className = ''
   localStorage.clear()
   if (stored !== null) localStorage.setItem('start-mugsun-theme', stored)
@@ -135,5 +147,19 @@ describe('启动错误页跟随应用主题', () => {
     expect(wrap.style.inset).toMatch(/^0(px)?$/)
     expect(wrap.style.overflow).toBe('auto')
   })
-})
 
+  it('localStorage.getItem 抛错时 html 不加 class，按系统暗色规则显示暗色', async () => {
+    document.documentElement.className = ''
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('SecurityError')
+    })
+    vi.stubGlobal('matchMedia', (q: string) => ({ matches: q.includes('dark') }))
+    new Function(themeScriptCode())()
+    vi.unstubAllGlobals()
+    expect(document.documentElement.className).toBe('')
+    const e = await effective(true)
+    expect(hex(e.wrapBg)).toBe('#141414')
+    expect(hex(e.boxBg)).toBe('#2b1d1d')
+    expect(hex(e.color)).toBe('#ffa39e')
+  })
+})
