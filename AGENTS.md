@@ -61,6 +61,19 @@ pnpm shots        # 截图
 
 CI（`.github/workflows/`）：`server-ci.yml` 只在 `server/**` 有改动时跑 `./mvnw verify`；`web-ci.yml` 只在 `web/**` 有改动时跑类型检查、lint、单测、构建、构建守卫与布局 e2e。依赖更新由 `.github/dependabot.yml` 管理。
 
+`repo-checks.yml` 不带 paths 过滤，任何分支推送都跑（CHANGELOG 行宽、gitleaks、AGENTS.md / CLAUDE.md 软链）。本仓 main 没有分支保护，按 3.16 快进前必须先在分支上跑绿的就是它；只改根目录文件的提交不会触发 server-ci / web-ci，以 repo-checks 的结果为准。合入 main 后马上用 `gh run list --commit <sha>` 看 main 的 CI；推送事件偶尔延迟不触发时，用 `gh workflow run <workflow> --ref <分支>` 手动跑。
+
+新增或修改 workflow 时（3.17）：
+- 触发用 `push: branches: ['**']` 加 `workflow_dispatch`；
+- concurrency 统一写成：
+  ```yaml
+  concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}${{ github.ref == 'refs/heads/main' && format('-{0}', github.sha) || '' }}
+    cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  ```
+  main 每次推送单独成组、从不取消，其他分支新推送取消旧运行；
+- `permissions` 只给 `contents: read`，checkout 加 `persist-credentials: false`，action 钉 SHA。
+
 本仓根目录没有 husky / pre-commit 钩子，提交前自己跑一遍对应的检查。
 
 ## 本地构建
@@ -78,6 +91,8 @@ CI（`.github/workflows/`）：`server-ci.yml` 只在 `server/**` 有改动时�
 
 - Conventional Commits，主题中文，不超过 50 字，不用 emoji。
 - 不用 `git stash`；切换工作用 `git worktree`。
+- 不用 `--no-verify`；已推送的分支不 rebase。
+- 把 main 合进分支产生的 merge commit 是新 SHA，同样要先在分支上跑绿再快进。
 - **只有分支最新的 commit 已经在分支上跑过同名必需检查、并且全绿，才可以快进推入 main。推送前用 `gh run list --commit <sha>` 自己确认。不要 force push。**
 - 合入后作者自行删除远端分支。
 - 提交的作者和提交者一律是 `mugsun <bydongxin@gmail.com>`：用 `git -c user.name=mugsun -c user.email=bydongxin@gmail.com commit` 或仓库级 config，不改全局配置。已推送的历史（含 main 上以其他身份提交的）一律不改写、不 force push。
