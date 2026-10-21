@@ -18,7 +18,7 @@ import { form, scopeTypes, loadMetadata, applyQuery, toRequest, metaState, apply
 import { toQuery } from './lib/share'
 
 const { t, locale } = useI18n()
-const isDark = useDark({ storageKey: 'start-mugsun-theme' })
+const isDark = useDark({ storageKey: 'start-mugsun-theme', valueLight: 'light' })
 const toggleDark = useToggle(isDark)
 const narrow = useMediaQuery('(max-width: 639px)')
 const online = useOnline()

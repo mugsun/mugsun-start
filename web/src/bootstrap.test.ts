@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest'
 import { BOOT_ERROR_CSS, bootstrap } from './bootstrap'
+import indexHtml from '../index.html?raw'
 import { API_BASE_MISSING_MESSAGE, resolveApiMode } from './api/mode'
 
 describe('bootstrap', () => {
@@ -60,3 +61,79 @@ describe('bootstrap', () => {
     expect(root.querySelector('[role="alert"]')!.classList.contains('boot-error')).toBe(true)
   })
 })
+
+/** 运行 index.html 的首帧主题脚本（真实文件内容），模拟 localStorage 与系统偏好 */
+function runThemeScript(stored: string | null, systemDark: boolean) {
+  const code = /<script>([\s\S]*?)<\/script>/.exec(indexHtml)![1]
+  document.documentElement.className = ''
+  localStorage.clear()
+  if (stored !== null) localStorage.setItem('start-mugsun-theme', stored)
+  vi.stubGlobal('matchMedia', (q: string) => ({ matches: systemDark && q.includes('dark') }))
+  new Function(code)()
+  vi.unstubAllGlobals()
+}
+
+/** 在当前 html class 与给定系统偏好下，提示框/外层实际生效的声明（按 CSSOM 规则顺序后者覆盖前者） */
+async function effective(systemDark: boolean) {
+  document.head.innerHTML = ''
+  document.body.innerHTML = '<div id="app"></div>'
+  vi.spyOn(console, 'error').mockImplementation(() => {})
+  await bootstrap(document.getElementById('app'), async () => { throw new Error('x') })
+  const sheet = (document.getElementById('boot-error-style') as HTMLStyleElement).sheet!
+  const box = document.querySelector('.boot-error') as HTMLElement
+  const wrap = document.querySelector('.boot-error-wrap') as HTMLElement
+  const out = { wrapBg: '', boxBg: '', color: '' }
+  const apply = (rule: CSSStyleRule) => {
+    if (wrap.matches(rule.selectorText) && rule.style.background) out.wrapBg = rule.style.background
+    if (box.matches(rule.selectorText)) {
+      if (rule.style.background) out.boxBg = rule.style.background
+      if (rule.style.color) out.color = rule.style.color
+    }
+  }
+  for (const rule of Array.from(sheet.cssRules)) {
+    if (rule instanceof CSSMediaRule) {
+      if (systemDark && rule.conditionText.includes('prefers-color-scheme: dark')) Array.from(rule.cssRules).forEach((r) => apply(r as CSSStyleRule))
+    } else apply(rule as CSSStyleRule)
+  }
+  return out
+}
+
+const hex = (c: string) => c.replace(/rgb\((\d+), (\d+), (\d+)\)/, (_, r, g, b) => '#' + [r, g, b].map((n: string) => (+n).toString(16).padStart(2, '0')).join(''))
+
+describe('启动错误页跟随应用主题', () => {
+  it('手动暗色（html.dark）→ 暗色，即使系统为亮色', async () => {
+    runThemeScript('dark', false)
+    expect(document.documentElement.classList.contains('dark')).toBe(true)
+    const e = await effective(false)
+    expect(hex(e.wrapBg)).toBe('#141414')
+    expect(hex(e.boxBg)).toBe('#2b1d1d')
+    expect(hex(e.color)).toBe('#ffa39e')
+  })
+
+  it('系统暗色但手动选了亮色（html.light）→ 亮色', async () => {
+    runThemeScript('light', true)
+    expect(document.documentElement.classList.contains('light')).toBe(true)
+    expect(document.documentElement.classList.contains('dark')).toBe(false)
+    const e = await effective(true)
+    expect(hex(e.wrapBg)).toBe('#ffffff')
+    expect(hex(e.boxBg)).toBe('#fef0f0')
+    expect(hex(e.color)).toBe('#a8071a')
+  })
+
+  it('跟随系统（auto）且系统暗色 → 暗色', async () => {
+    runThemeScript('auto', true)
+    const e = await effective(true)
+    expect(hex(e.boxBg)).toBe('#2b1d1d')
+  })
+
+  it('外层 fixed 铺满视口并可滚动（替代 min-height:100vh）', async () => {
+    document.body.innerHTML = '<div id="app"></div>'
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    await bootstrap(document.getElementById('app'), async () => { throw new Error('x') })
+    const wrap = document.querySelector('.boot-error-wrap') as HTMLElement
+    expect(wrap.style.position).toBe('fixed')
+    expect(wrap.style.inset).toMatch(/^0(px)?$/)
+    expect(wrap.style.overflow).toBe('auto')
+  })
+})
+
