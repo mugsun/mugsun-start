@@ -2,10 +2,15 @@ name: server-ci
 
 on:
   push:
-    branches: [main]
+    branches: ['**']
     paths: ['server/**', '.github/workflows/server-ci.yml']
   pull_request:
     paths: ['server/**', '.github/workflows/server-ci.yml']
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
   contents: read

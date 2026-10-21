@@ -2,10 +2,15 @@ name: web-ci
 
 on:
   push:
-    branches: [main]
+    branches: ['**']
     paths: ['web/**', '.github/workflows/web-ci.yml']
   pull_request:
     paths: ['web/**', '.github/workflows/web-ci.yml']
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
   contents: read
