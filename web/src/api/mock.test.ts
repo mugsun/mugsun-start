@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest'
-import { buildMockMetadata, buildPreview, mockFetch, setMockMode, MOCK_BASE } from './mock'
+import { buildMockMetadata, buildPreview, mockFetch, setMockMode, MOCK_BASE, mockRequestId } from './mock'
 import { createHttpApi } from './http'
 import type { PreviewNode, ProjectRequest } from './types'
 
@@ -169,5 +169,11 @@ describe('mock via http api', () => {
     setMockMode('')
     const r = await api.generate(base, { locale: 'en' })
     expect(r.fileName).toBe('demo.zip')
+  })
+})
+
+describe('mockRequestId', () => {
+  it('always has a fixed 10-char suffix', () => {
+    for (let i = 0; i < 20000; i++) expect(mockRequestId()).toMatch(/^01MOCK[0-9A-Z]{10}$/)
   })
 })

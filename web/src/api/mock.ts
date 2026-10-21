@@ -271,7 +271,14 @@ function serverCheck(req: ProjectRequest, lang: 'zh' | 'en', id: string): Respon
 }
 
 /* ---------- mockFetch ---------- */
-const rid = () => `01MOCK${Math.random().toString(36).slice(2, 12).toUpperCase()}`
+// 固定 10 位（Crockford base32），与 e2e 断言 01MOCK[0-9A-Z]{10} 一致。
+// 不要用 Math.random().toString(36).slice(…)：小数位不足时会少于 10 位。
+const RID_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ'
+export const mockRequestId = (): string => {
+  const bytes = crypto.getRandomValues(new Uint8Array(10))
+  return `01MOCK${Array.from(bytes, (b) => RID_ALPHABET[b & 31]).join('')}`
+}
+const rid = mockRequestId
 const wait = (ms: number, signal?: AbortSignal | null) => new Promise<void>((resolve, reject) => {
   const t = setTimeout(resolve, ms)
   signal?.addEventListener('abort', () => { clearTimeout(t); reject(new DOMException('Aborted', 'AbortError')) })
