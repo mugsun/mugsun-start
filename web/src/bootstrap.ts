@@ -19,7 +19,10 @@ const STYLE_ID = 'boot-error-style'
  */
 export const BOOT_ERROR_CSS =
   '.boot-error{background:#fef0f0;color:#a8071a;border:1px solid #e04f4f}' +
-  '@media (prefers-color-scheme: dark){.boot-error{background:#2b1d1d;color:#ffa39e;border-color:#b35656}}'
+  '@media (prefers-color-scheme: dark){' +
+  // 暗色下外层 wrap 自带暗底并铺满视口：只影响自己的 wrap，不改全局 body（index.html 的 body 本身没有底色）
+  '.boot-error-wrap{background:#141414;min-height:100vh}' +
+  '.boot-error{background:#2b1d1d;color:#ffa39e;border-color:#b35656}}'
 
 function ensureStyle(): void {
   if (document.getElementById(STYLE_ID)) return
@@ -32,7 +35,8 @@ function ensureStyle(): void {
 export function showBootError(root: HTMLElement, err: unknown): void {
   // 外层 flex 居中；提示框左右各留 16px，窄屏（390）不贴边，宽屏最大 640px
   const wrap = document.createElement('div')
-  wrap.style.cssText = 'display:flex;justify-content:center'
+  wrap.className = 'boot-error-wrap'
+  wrap.style.cssText = 'display:flex;justify-content:center;align-items:flex-start'
   ensureStyle()
   const box = document.createElement('div')
   box.className = 'boot-error'
