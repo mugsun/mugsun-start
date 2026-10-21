@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from 'vitest'
+import { describe, it, expect, afterEach, vi } from 'vitest'
 import { buildMockMetadata, buildPreview, mockFetch, setMockMode, MOCK_BASE, mockRequestId } from './mock'
 import { createHttpApi } from './http'
 import type { PreviewNode, ProjectRequest } from './types'
@@ -174,6 +174,15 @@ describe('mock via http api', () => {
 
 describe('mockRequestId', () => {
   it('always has a fixed 10-char suffix', () => {
-    for (let i = 0; i < 20000; i++) expect(mockRequestId()).toMatch(/^01MOCK[0-9A-Z]{10}$/)
+    for (let i = 0; i < 20000; i++) expect(mockRequestId()).toMatch(/^01MOCK[0-9A-HJKMNP-TV-Z]{10}$/)
+  })
+  it('maps byte extremes to the first and last Crockford chars', () => {
+    const spy = vi.spyOn(crypto, 'getRandomValues')
+    try {
+      spy.mockImplementation(<T extends ArrayBufferView | null>(a: T) => { (a as unknown as Uint8Array).fill(0); return a })
+      expect(mockRequestId()).toBe('01MOCK0000000000')
+      spy.mockImplementation(<T extends ArrayBufferView | null>(a: T) => { (a as unknown as Uint8Array).fill(255); return a })
+      expect(mockRequestId()).toBe('01MOCKZZZZZZZZZZ')
+    } finally { spy.mockRestore() }
   })
 })

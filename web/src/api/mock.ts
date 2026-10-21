@@ -276,9 +276,9 @@ function serverCheck(req: ProjectRequest, lang: 'zh' | 'en', id: string): Respon
 const RID_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ'
 export const mockRequestId = (): string => {
   const bytes = crypto.getRandomValues(new Uint8Array(10))
+  // b & 31 取低 5 位：256 是 32 的整数倍，每个字符恰好对应 8 个字节值，没有取模偏差
   return `01MOCK${Array.from(bytes, (b) => RID_ALPHABET[b & 31]).join('')}`
 }
-const rid = mockRequestId
 const wait = (ms: number, signal?: AbortSignal | null) => new Promise<void>((resolve, reject) => {
   const t = setTimeout(resolve, ms)
   signal?.addEventListener('abort', () => { clearTimeout(t); reject(new DOMException('Aborted', 'AbortError')) })
@@ -304,7 +304,7 @@ export async function mockFetch(url: string, init?: RequestInit): Promise<Respon
   const signal = init?.signal
   const lang = new Headers(init?.headers).get('Accept-Language') === 'zh' ? 'zh' : 'en'
   const mode = mockMode()
-  const id = rid()
+  const id = mockRequestId()
   if (path === '/api/v1/metadata') {
     if (mode === 'meta-loading' || mode === 'meta-timeout') await hang(signal)
     await wait(300, signal)
