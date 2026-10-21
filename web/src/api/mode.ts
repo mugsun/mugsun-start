@@ -18,7 +18,7 @@ export const API_BASE_MISSING_MESSAGE =
   '[mugsun-start] 构建时缺少 VITE_API_BASE，已拒绝回落到 mock 数据。' +
   '修复：设置 VITE_API_BASE 为后端地址（前后端同源部署设 VITE_API_BASE=/）；' +
   '如确实要部署 mock 演示版，请显式设置 VITE_USE_MOCK=1。' +
-  ' / VITE_API_BASE is missing at build time; refusing to fall back to mock data. ' +
+  '\nVITE_API_BASE is missing at build time; refusing to fall back to mock data. ' +
   'Fix: set VITE_API_BASE to the backend URL (VITE_API_BASE=/ for same-origin deployment), ' +
   'or set VITE_USE_MOCK=1 explicitly for a mock demo build.'
 

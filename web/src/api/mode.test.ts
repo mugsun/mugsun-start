@@ -20,6 +20,12 @@ describe('resolveApiMode（生产构建）', () => {
     expect(API_BASE_MISSING_MESSAGE).toContain('VITE_USE_MOCK=1')
     expect(API_BASE_MISSING_MESSAGE).toContain('构建时缺少 VITE_API_BASE')
     expect(API_BASE_MISSING_MESSAGE).toContain('missing at build time')
+    // 中英文分两行；CI guard 按行 grep 'VITE_API_BASE=/'，中文行与英文行都需匹配
+    const lines = API_BASE_MISSING_MESSAGE.split('\n')
+    expect(lines).toHaveLength(2)
+    expect(lines[0]).toContain('VITE_API_BASE=/')
+    expect(lines[1]).toContain('VITE_API_BASE=/')
+    expect(API_BASE_MISSING_MESSAGE).not.toContain(' / ')
   })
   it('空白值与 VITE_USE_MOCK≠1 视为未设', () => {
     expect(() => resolveApiMode({ production: true, apiBase: '  ', useMock: '0' })).toThrow(API_BASE_MISSING_MESSAGE)

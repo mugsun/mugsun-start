@@ -18,9 +18,9 @@ export function showBootError(root: HTMLElement, err: unknown): void {
   const box = document.createElement('div')
   box.setAttribute('role', 'alert')
   box.style.cssText =
-    'flex:0 1 640px;max-width:640px;min-width:0;margin:48px 16px;padding:16px 20px;border:1px solid #f56c6c;border-radius:8px;' +
+    'box-sizing:border-box;flex:0 1 640px;max-width:640px;min-width:0;margin:48px 16px;padding:16px 20px;border:1px solid #f56c6c;border-radius:8px;' +
     'background:#fef0f0;color:#a8071a;font:14px/1.6 system-ui,-apple-system,sans-serif;' +
-    'white-space:pre-wrap;word-break:break-word'
+    'white-space:pre-line;word-break:break-word'
   // 只用 textContent，不用 innerHTML
   box.textContent = err instanceof Error ? err.message : String(err)
   wrap.append(box)
