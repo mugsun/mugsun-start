@@ -18,6 +18,8 @@ describe('resolveApiMode（生产构建）', () => {
     expect(() => resolveApiMode({ production: true })).toThrow(API_BASE_MISSING_MESSAGE)
     expect(API_BASE_MISSING_MESSAGE).toContain('VITE_API_BASE=/')
     expect(API_BASE_MISSING_MESSAGE).toContain('VITE_USE_MOCK=1')
+    expect(API_BASE_MISSING_MESSAGE).toContain('构建时缺少 VITE_API_BASE')
+    expect(API_BASE_MISSING_MESSAGE).toContain('missing at build time')
   })
   it('空白值与 VITE_USE_MOCK≠1 视为未设', () => {
     expect(() => resolveApiMode({ production: true, apiBase: '  ', useMock: '0' })).toThrow(API_BASE_MISSING_MESSAGE)
