@@ -6,8 +6,9 @@ import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
 import { resolveApiMode } from './src/api/mode'
 
 export default defineConfig(({ command, mode }) => {
-  // 生产构建在构建期就检查接口地址：没设 VITE_API_BASE 也没显式 VITE_USE_MOCK=1 时直接失败（错误信息含修复方法）
-  if (command === 'build' && mode === 'production') {
+  // 任何 mode 的构建（production/staging/…）都在构建期检查接口地址：没设 VITE_API_BASE 也没显式 VITE_USE_MOCK=1 时直接失败。
+  // vite dev（command==='serve'）不检查，未设变量时仍走内置 mock。
+  if (command === 'build') {
     // loadEnv 会合并 .env* 文件（web/ 目录，pnpm 脚本在此运行）与同前缀的进程环境变量（后者优先）
     const env = loadEnv(mode, '.', 'VITE_')
     resolveApiMode({ production: true, apiBase: env.VITE_API_BASE, useMock: env.VITE_USE_MOCK })

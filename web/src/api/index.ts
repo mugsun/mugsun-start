@@ -9,7 +9,8 @@ export { isAbort } from './http'
  * 全站唯一的接口入口。设置 VITE_API_BASE 即切到真接口（同源部署设 '/'）；
  * 开发时未设置则同一套 HTTP 层打到内置 mock（mockFetch 模拟 §4 的响应），行为一致。
  * 生产构建未设 VITE_API_BASE 且未显式 VITE_USE_MOCK=1 时，构建期（vite.config）就会失败；
- * 这里在运行期再兜一次，抛出同样带修复方法的错误，绝不悄悄走 mock。
+ * 这里在运行期再兜一次，抛出同样带修复方法的错误，绝不悄悄走 mock；
+ * 该错误在模块求值时抛出，由 main.ts 通过动态 import 捕获并显示到 #app（见 bootstrap.ts），不会白屏。
  */
 const mode = resolveApiMode({
   production: import.meta.env.PROD,
