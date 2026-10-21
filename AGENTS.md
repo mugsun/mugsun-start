@@ -93,7 +93,7 @@ CI（`.github/workflows/`）：`server-ci.yml` 只在 `server/**` 有改动时�
 - 不用 `git stash`；切换工作用 `git worktree`。
 - 不用 `--no-verify`；已推送的分支不 rebase。
 - 把 main 合进分支产生的 merge commit 是新 SHA，同样要先在分支上跑绿再快进。
-- **只有分支最新的 commit 已经在分支上跑过同名必需检查、并且全绿，才可以快进推入 main。推送前用 `gh run list --commit <sha>` 自己确认。不要 force push。**
+- **只有分支最新的 commit 已经在分支上跑过同名检查、并且全绿，才可以快进推入 main。推送前用 `gh run list --commit <sha>` 自己确认。不要 force push。**
 - 合入后作者自行删除远端分支。
 - 提交的作者和提交者一律是 `mugsun <bydongxin@gmail.com>`：用 `git -c user.name=mugsun -c user.email=bydongxin@gmail.com commit` 或仓库级 config，不改全局配置。已推送的历史（含 main 上以其他身份提交的）一律不改写、不 force push。
 - 生成逻辑 / 依赖升级 / CI workflow 属于敏感改动，需安全审查。
