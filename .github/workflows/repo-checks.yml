@@ -83,11 +83,20 @@ jobs:
           gitleaks version
 
       # 只输出位置与规则名，不打印匹配值；报告写到 RUNNER_TEMP，不上传
+      # 3.19：分支推送扫 HEAD 的祖先；main 推送与手动触发扫 --all
       - name: Scan git history
+        env:
+          REF: ${{ github.ref }}
+          EVENT: ${{ github.event_name }}
         run: |
           set -uo pipefail
           report="$RUNNER_TEMP/gitleaks.json"
-          gitleaks detect --source . --log-opts=HEAD --redact --no-banner \
+          opts=HEAD
+          if [ "$REF" = refs/heads/main ] || [ "$EVENT" = workflow_dispatch ]; then
+            opts=--all
+          fi
+          echo "gitleaks --log-opts=$opts（$(git rev-list --count $opts) 个提交）"
+          gitleaks detect --source . --log-opts="$opts" --redact --no-banner \
             --log-level error --report-format json --report-path "$report"
           rc=$?
           [ -f "$report" ] || { echo "::error::gitleaks 没有生成报告（退出码 $rc）"; exit 1; }

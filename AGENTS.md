@@ -61,7 +61,7 @@ pnpm shots        # 截图
 
 CI（`.github/workflows/`）：`server-ci.yml` 只在 `server/**` 有改动时跑 `./mvnw verify`；`web-ci.yml` 只在 `web/**` 有改动时跑类型检查、lint、单测、构建、构建守卫与布局 e2e。依赖更新由 `.github/dependabot.yml` 管理。
 
-`repo-checks.yml` 不带 paths 过滤，任何分支推送都跑（CHANGELOG 行宽、gitleaks、AGENTS.md / CLAUDE.md 软链）。本仓 main 没有分支保护，按 3.16 快进前必须先在分支上跑绿的就是它；只改根目录文件的提交不会触发 server-ci / web-ci，以 repo-checks 的结果为准。合入 main 后马上用 `gh run list --commit <sha>` 看 main 的 CI；推送事件偶尔延迟不触发时，用 `gh workflow run <workflow> --ref <分支>` 手动跑。
+`repo-checks.yml` 不带 paths 过滤，任何分支推送都跑（CHANGELOG 行宽、gitleaks、AGENTS.md / CLAUDE.md 软链）。本仓 main 没有分支保护，按 3.16 快进前必须先在分支上跑绿的就是它；只改根目录文件的提交不会触发 server-ci / web-ci，以 repo-checks 的结果为准。合入 main 后马上用 `gh run list --commit <sha>` 看 main 的 CI；推送事件偶尔延迟不触发时，用 `gh workflow run <workflow> --ref <分支>` 手动跑。手动跑完仍要用 `gh run list --commit <sha>` 确认那次运行的 SHA 就是要快进的那个；之后迟到的 push 运行如果是红的，同样要处理。
 
 新增或修改 workflow 时（3.17）：
 - 触发用 `push: branches: ['**']` 加 `workflow_dispatch`；
@@ -73,6 +73,7 @@ CI（`.github/workflows/`）：`server-ci.yml` 只在 `server/**` 有改动时�
   ```
   main 每次推送单独成组、从不取消，其他分支新推送取消旧运行；
 - `permissions` 只给 `contents: read`，checkout 加 `persist-credentials: false`，action 钉 SHA。
+- 需要基线比较的检查，拿不到基线时用 `::error` 让 job 失败，不许静默通过。
 
 本仓根目录没有 husky / pre-commit 钩子，提交前自己跑一遍对应的检查。
 
