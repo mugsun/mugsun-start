@@ -95,6 +95,11 @@ CI（`.github/workflows/`）：`server-ci.yml` 只在 `server/**` 有改动时�
 - 不用 `--no-verify`；已推送的分支不 rebase。
 - 把 main 合进分支产生的 merge commit 是新 SHA，同样要先在分支上跑绿再快进。
 - **只有分支最新的 commit 已经在分支上跑过同名检查、并且全绿，才可以快进推入 main。推送前用 `gh run list --commit <sha>` 自己确认。不要 force push。**
+- 推 main 前的防误推（3.20）：
+  - 推 main 前显式核对：这个完整 SHA 已经审过（审查结论里写的就是它），并且 `gh run list --commit <完整 SHA>` 显示同名检查全绿。短 SHA 查询可能返回空，不算核对。
+  - 推送一律写全 refspec：`git push origin <sha>:refs/heads/<分支>`，不用裸 `git push`，也不依赖 upstream 跟踪。
+  - 还没审的本地提交，不放在跟踪 main（upstream 为 `origin/main`）的分支上。
+  - 改动 `.github/` 下任何文件的提交，必须先有安全官签字，才能进 main。
 - 合入后作者自行删除远端分支。
 - 提交的作者和提交者一律是 `mugsun <bydongxin@gmail.com>`：用 `git -c user.name=mugsun -c user.email=bydongxin@gmail.com commit` 或仓库级 config，不改全局配置。已推送的历史（含 main 上以其他身份提交的）一律不改写、不 force push。
 - 生成逻辑 / 依赖升级 / CI workflow 属于敏感改动，需安全审查。
