@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest'
-import { bootstrap } from './bootstrap'
+import { BOOT_ERROR_CSS, bootstrap } from './bootstrap'
 import { API_BASE_MISSING_MESSAGE, resolveApiMode } from './api/mode'
 
 describe('bootstrap', () => {
@@ -34,5 +34,19 @@ describe('bootstrap', () => {
     await bootstrap(root, mount)
     expect(mount).toHaveBeenCalledOnce()
     expect(root.querySelector('[role="alert"]')).toBeNull()
+  })
+
+  it('注入带 prefers-color-scheme: dark 的配色样式，且只注入一次', async () => {
+    document.head.innerHTML = ''
+    document.body.innerHTML = '<div id="app"></div>'
+    const root = document.getElementById('app')!
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    await bootstrap(root, async () => { throw new Error('x') })
+    await bootstrap(root, async () => { throw new Error('y') })
+    const styles = document.head.querySelectorAll('style#boot-error-style')
+    expect(styles).toHaveLength(1)
+    expect(styles[0].textContent).toBe(BOOT_ERROR_CSS)
+    expect(BOOT_ERROR_CSS).toMatch(/@media \(prefers-color-scheme: dark\)\{\.boot-error\{background:#2b1d1d;color:#ffa39e;/)
+    expect(root.querySelector('[role="alert"]')!.classList.contains('boot-error')).toBe(true)
   })
 })
