@@ -83,7 +83,7 @@ jobs:
       - name: Cache Playwright browsers
         id: pw-cache
         if: hashFiles('web/pnpm-lock.yaml') != ''
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}-chromium
@@ -100,7 +100,7 @@ jobs:
         run: pnpm e2e:ci
       - name: Upload e2e artifacts
         if: failure() && hashFiles('web/pnpm-lock.yaml') != ''
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: e2e-artifacts
           path: web/e2e-artifacts/
