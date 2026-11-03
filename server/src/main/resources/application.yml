@@ -1,5 +1,5 @@
 server:
-  port: ${MUGSUN_START_PORT:8080}
+  port: ${MUGSUN_START_PORT:8090}
   # 生成接口会返回 zip，压缩对其无益；元数据 JSON 由反向代理压缩
   shutdown: graceful
 

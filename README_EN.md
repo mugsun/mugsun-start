@@ -28,9 +28,9 @@ Requires JDK 21.
 
 ```bash
 cd server
-./mvnw spring-boot:run          # port 8080 by default; override with MUGSUN_START_PORT
-curl -s localhost:8080/metadata/client -H 'Accept: application/vnd.initializr.v2.2+json'
-curl -o demo.zip 'localhost:8080/starter.zip?type=maven-project'
+./mvnw spring-boot:run          # port 8090 by default; override with MUGSUN_START_PORT
+curl -s localhost:8090/metadata/client -H 'Accept: application/vnd.initializr.v2.2+json'
+curl -o demo.zip 'localhost:8090/starter.zip?type=maven-project'
 ```
 
 ### Front end (`web/`)

@@ -28,9 +28,9 @@ start.mugsun.com 项目生成器：基于 [Spring Initializr](https://github.com
 
 ```bash
 cd server
-./mvnw spring-boot:run          # 默认端口 8080，可用 MUGSUN_START_PORT 覆盖
-curl -s localhost:8080/metadata/client -H 'Accept: application/vnd.initializr.v2.2+json'
-curl -o demo.zip 'localhost:8080/starter.zip?type=mugsun-backend'
+./mvnw spring-boot:run          # 默认端口 8090，可用 MUGSUN_START_PORT 覆盖
+curl -s localhost:8090/metadata/client -H 'Accept: application/vnd.initializr.v2.2+json'
+curl -o demo.zip 'localhost:8090/starter.zip?type=mugsun-backend'
 ```
 
 ### 前端（`web/`）

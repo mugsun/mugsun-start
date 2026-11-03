@@ -42,7 +42,7 @@ start.mugsun.com 项目生成器：基于 Spring Initializr，按所选类型与
 ```bash
 cd server
 ./mvnw -B -ntp verify           # CI 同款
-./mvnw spring-boot:run          # 默认 8080，可用 MUGSUN_START_PORT 覆盖
+./mvnw spring-boot:run          # 默认 8090，可用 MUGSUN_START_PORT 覆盖
 ```
 
 前端（需要 Node.js 22、pnpm 11）：
