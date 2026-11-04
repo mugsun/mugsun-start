@@ -4,9 +4,11 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
 
-The project generator behind start.mugsun.com. Built on [Spring Initializr](https://github.com/spring-io/initializr) 0.23.0, it generates a mugsun-based admin application from the selected project type and optional modules (GIS, analytics, AI and others). The downloaded project runs locally.
+This repository is the mugsun project generator (built on [Spring Initializr](https://github.com/spring-io/initializr) 0.23.0).
 
-> **Status: phase 1 in progress (S1 skeleton).** Until S4, `/starter.zip` still returns a generic Spring Boot skeleton; mugsun templates are not wired in yet.
+The planned hostname `start.mugsun.com` is not DNS-resolved and not deployed yet; do not treat it as a live site. Run it locally with the steps below.
+
+> **Status: phase 1 in progress (S1 skeleton).** Until S4, `/starter.zip` still returns a generic Spring Boot skeleton; mugsun templates are not wired in yet, so the download is not a ready-to-run mugsun app.
 > This repository **publishes no artifacts** (the Maven / npm / Docker image release plan is not decided yet).
 
 ## Layout

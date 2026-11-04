@@ -4,9 +4,11 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
 
-start.mugsun.com 项目生成器：基于 [Spring Initializr](https://github.com/spring-io/initializr) 0.23.0，按所选类型与可选模块（GIS、埋点、AI 等）生成基于 mugsun 的管理系统工程，下载后即可在本地运行。
+本仓库是 mugsun 的项目生成器（基于 [Spring Initializr](https://github.com/spring-io/initializr) 0.23.0）。
 
-> **状态：一期开发中（S1 骨架）。** 在 S4 之前，`/starter.zip` 输出的仍是通用 Spring Boot 骨架，尚未接入 mugsun 模板。
+规划域名 `start.mugsun.com` 尚未解析、也未部署，当前不能当作已上线站点访问；请在本机按下方步骤运行。
+
+> **状态：一期开发中（S1 骨架）。** 在 S4 之前，`/starter.zip` 输出的仍是通用 Spring Boot 骨架，尚未接入 mugsun 模板，下载后得到的不是可直接当 mugsun 工程用的成品。
 > 本仓库**不发布任何制品**（Maven / npm / Docker 镜像发布方案待定）。
 
 ## 目录结构

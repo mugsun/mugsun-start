@@ -143,7 +143,7 @@ class UiMetadataApiTests {
 		assertThat(texts(p.path("requirements").path("mugsun-backend"))).containsExactly("JDK 21", "Maven 3.9+", "Docker");
 		assertThat(texts(p.path("commands").path("mugsun-fullstack")))
 			.contains("cd {artifactId}-pc && pnpm install && pnpm dev");
-		assertThat(p.path("docs").asText()).isEqualTo("https://docs.mugsun.com/guide/quick-start");
+		assertThat(p.path("docs").asText()).isEqualTo("https://docs.mugsun.com/guide/getting-started");
 	}
 
 	@Test

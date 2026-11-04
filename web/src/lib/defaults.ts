@@ -29,5 +29,5 @@ export const FALLBACK_POSTGEN: PostGenerate = {
     [BACKEND]: ['unzip {artifactId}.zip && cd {artifactId}', 'docker compose up -d', './mvnw spring-boot:run'],
     [FULLSTACK]: ['unzip {artifactId}.zip && cd {artifactId}', 'docker compose up -d', './mvnw spring-boot:run', 'cd {artifactId}-pc && pnpm install && pnpm dev']
   },
-  docs: 'https://docs.mugsun.com/guide/quick-start'
+  docs: 'https://docs.mugsun.com/guide/getting-started'
 }

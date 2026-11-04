@@ -94,7 +94,7 @@ export function buildMockMetadata(): Metadata {
         'mugsun-backend': ['unzip {artifactId}.zip && cd {artifactId}', 'docker compose up -d', './mvnw spring-boot:run'],
         'mugsun-fullstack': ['unzip {artifactId}.zip && cd {artifactId}', 'docker compose up -d', './mvnw spring-boot:run', 'cd {artifactId}-pc && pnpm install && pnpm dev']
       },
-      docs: `${DOCS}/guide/quick-start`
+      docs: `${DOCS}/guide/getting-started`
     }
   }
 }

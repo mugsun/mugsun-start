@@ -1,6 +1,6 @@
 # mugsun-start-web
 
-start.mugsun.com 项目生成器前端（Vue 3 + TypeScript + Vite + Element Plus）。设计规格见体验设计官 v1。
+mugsun-start 项目生成器前端（Vue 3 + TypeScript + Vite + Element Plus）。设计规格见体验设计官 v1。规划域名 `start.mugsun.com` 尚未解析/部署。
 
 ```bash
 pnpm install
@@ -11,14 +11,14 @@ pnpm build
 
 ## 接口
 - 契约：平台后端《start.mugsun.com 切片》§4。`GET /api/v1/metadata`、`POST /api/v1/preview`（JSON）、`POST /starter.zip`（form-urlencoded，含 `baseDir`）。
-- 切换真实后端只需设置 `VITE_API_BASE`（如 `https://start.mugsun.com`；前后端同源部署设 `/`）。开发时未设置则 `src/api/mock.ts` 以假 `fetch` 接入同一套 HTTP 层（`src/api/http.ts`），即「前端 mock 数据」。
+- 切换真实后端只需设置 `VITE_API_BASE`（本机后端如 `http://localhost:8090`；前后端同源部署设 `/`）。开发时未设置则 `src/api/mock.ts` 以假 `fetch` 接入同一套 HTTP 层（`src/api/http.ts`），即「前端 mock 数据」。规划域名 `start.mugsun.com` 尚未解析，不要写成已可访问。
 - 生产构建（`pnpm build`）未设 `VITE_API_BASE` 且未显式设 `VITE_USE_MOCK=1` 会在构建期直接报错（`vite.config.ts`），运行期 `src/api/index.ts` 也会抛同样的错误，不再悄悄回落到 mock。要部署 mock 演示版请显式设 `VITE_USE_MOCK=1`。变量说明见 `.env.example`；判定规则在 `src/api/mode.ts`。
 - 超时：metadata/preview 10s，generate 60s；metadata 与 preview 新请求会取消旧请求，只保留最新结果。
 - 错误体 `{code,message,requestId,details}`：`INVALID_PARAMETER` 的 details 映射到表单字段；429 读取 `Retry-After`。
 - 下载文件名取 `Content-Disposition`，并校验 `Content-Type: application/zip`。
 - 默认值、校验规则、启动说明来自 metadata `fields` / `postGenerate`；接口失败时用 `src/lib/defaults.ts` 兜底。
 - mock 场景：`?mock=meta-error|meta-timeout|meta-loading|preview-error|gen-fail|gen-slow|gen-429|gen-invalid|gen-unsupported`。
-- 正式部署前后端同源（start.mugsun.com），无需 CORS；如跨域联调，后端 `Access-Control-Expose-Headers` 已包含 `Content-Disposition`、`X-Request-Id`、`Retry-After`。
+- 正式部署时前后端宜同源，无需 CORS；本机跨域联调默认允许 `http://localhost:3093`。后端 `Access-Control-Expose-Headers` 已包含 `Content-Disposition`、`X-Request-Id`、`Retry-After`。
 - 请求只发送 type、groupId、artifactId、name、description、packageName、dependencies、baseDir；bootVersion/javaVersion/packaging/language/configurationFileFormat/database 一期只接受默认值，前端不传（version 可选，后端默认 0.0.1-SNAPSHOT，界面无该项故不传）。
 
 ## 构建

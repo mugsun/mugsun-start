@@ -330,12 +330,12 @@ class ErrorJsonTests {
 	@Test
 	@DisplayName("CORS：允许的来源可读取 Content-Disposition、X-Request-Id、Retry-After")
 	void cors() throws Exception {
-		MvcResult preflight = perform(options("/starter.zip").header(HttpHeaders.ORIGIN, "http://localhost:5173")
+		MvcResult preflight = perform(options("/starter.zip").header(HttpHeaders.ORIGIN, "http://localhost:3093")
 			.header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "GET"));
 		assertThat(preflight.getResponse().getStatus()).isEqualTo(200);
 		assertThat(preflight.getResponse().getHeader(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN))
-			.isEqualTo("http://localhost:5173");
-		MvcResult actual = perform(zip().header(HttpHeaders.ORIGIN, "https://start.mugsun.com"));
+			.isEqualTo("http://localhost:3093");
+		MvcResult actual = perform(zip().header(HttpHeaders.ORIGIN, "http://localhost:3093"));
 		assertThat(actual.getResponse().getHeader(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS))
 			.contains("Content-Disposition", "X-Request-Id", "Retry-After");
 		MvcResult denied = perform(zip().header(HttpHeaders.ORIGIN, "https://evil.example"));

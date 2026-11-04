@@ -183,7 +183,7 @@ mugsun:
     #     max-weight: 200000       # 缓存总节点数（fileCount + dirCount），按每个节点约 500 字节估算约 100MB
     #     ttl: 10m
     cors:
-      allowed-origins: ${MUGSUN_START_CORS_ORIGINS:https://start.mugsun.com,http://localhost:5173}
+      allowed-origins: ${MUGSUN_START_CORS_ORIGINS:http://localhost:3093}
     version: 2026.10.1
     templates:
       boot: 0.1.x(tag)
@@ -308,4 +308,4 @@ mugsun:
           - "docker compose up -d"
           - "./mvnw spring-boot:run"
           - "cd {artifactId}-pc && pnpm install && pnpm dev"
-      docs: https://docs.mugsun.com/guide/quick-start
+      docs: https://docs.mugsun.com/guide/getting-started
